@@ -94,7 +94,7 @@ section.view>*{flex:none}
 .modal h3{margin:0 0 12px;font:600 20px var(--serif);color:var(--sand)}
 .modal p{margin:0 0 10px;color:var(--beige2);font-size:14px}
 .modal textarea{width:100%;height:240px;background:var(--ink);border:1px solid var(--line);border-radius:3px;color:var(--beige);padding:10px;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
-.modal .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.modal .acts{flex-wrap:wrap;display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
 .grid label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--beige2)}
 .grid .full{grid-column:1/-1}
@@ -139,7 +139,7 @@ section.view>*{flex:none}
 const LEVELS=['Scheme','Category','Enquiry','Header','Subject','Topic (Noun)','Action (Verb)','Enquiry / Request'];
 const SUBJECTS=['SC','PR','Foreigner','Foreigner (Malaysian)','Foreigner (Non-Malaysian)','Anonymous'];
 const KEY='inventory.v1';
-let data={headers:[],notes:{},when:{}};
+let data={headers:[],notes:{},when:{},stubs:[]};
 let sel=null, open=new Set(), sortDir=1;
 const FIELDS=['scheme','category','enquiry','header','subject','topic','action'];
 
@@ -158,10 +158,12 @@ const $=s=>document.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 
 function persist(){} // nothing is ever stored in the browser
-function restore(){try{localStorage.removeItem(KEY)}catch(e){}data={headers:[],notes:{},when:{}}}
+function restore(){try{localStorage.removeItem(KEY)}catch(e){}data={headers:[],notes:{},when:{},stubs:[]}}
 
 function buildTrie(){
  const root={kids:new Map()};
+ const put=pp=>{let n=root,p=[];for(const part of pp){p=p.concat(part);if(!n.kids.has(part))n.kids.set(part,{label:part,path:p,kids:new Map()});n=n.kids.get(part)}};
+ data.stubs.forEach(put);
  for(const h of data.headers){let n=root,p=[];
   for(const part of pathOf(h)){p=p.concat(part);
    if(!n.kids.has(part))n.kids.set(part,{label:part,path:p,kids:new Map()});
@@ -216,6 +218,7 @@ function renderView(){
   data.headers=data.headers.filter(h=>!pathOf(h).slice(0,k).every((x,i)=>x===sel[i]));
   for(const key of Object.keys(data.notes)){const p=JSON.parse(key);if(p.length>=k&&sel.every((x,i)=>x===p[i]))delete data.notes[key]}
   for(const key of Object.keys(data.when)){const p=JSON.parse(key);if(p.length>=k&&sel.every((x,i)=>x===p[i]))delete data.when[key]}
+  data.stubs=data.stubs.filter(sp=>!pre(sp,sel));
   sel=null;persist();renderTree();renderView()});
  act.append(cp,rn,del);ch.append(act);v.append(ch);
 
@@ -325,7 +328,7 @@ function loadBox(title,hint,apply){
  ok.onclick=()=>{try{const r=apply(JSON.parse(ta.value));close();toast(r||'Loaded')}catch(e){msg.textContent='That text is not valid. '+e.message}};
  close=modal(title,b,[cl,ok]);ta.focus()}
 
-function saveHier(){saveBox('Save hierarchy',JSON.stringify({headers:data.headers},null,2))}
+function saveHier(){saveBox('Save hierarchy',JSON.stringify({headers:data.headers,stubs:data.stubs},null,2))}
 $('#hSave').onclick=saveHier;
 function parseHeaders(d){
  const arr=Array.isArray(d)?d:d.headers;
@@ -334,7 +337,7 @@ function parseHeaders(d){
  arr.forEach((h,i)=>need.forEach(f=>{if(h[f]==null)throw new Error(`Header ${i+1} is missing "${f}".`)}));
  return arr.map(h=>({...h,count:Number(h.count)||1,type:h.type==='req'?'req':'enq'}))}
 $('#hLoad').onclick=()=>loadBox('Load hierarchy','Pasting replaces the current hierarchy. Sentences stay as they are.',d=>{
- data.headers=parseHeaders(d);sel=null;open.clear();persist();renderTree();renderView()});
+ data.headers=parseHeaders(d);data.stubs=Array.isArray(d.stubs)?d.stubs.filter(Array.isArray).map(a=>a.map(String)):[];sel=null;open.clear();persist();renderTree();renderView()});
 // compact format: one nested tree, with each title's description (w) and sentences (s) stored on its own node
 function packAll(){
  const pack=n=>[...n.kids.values()].map(c=>{const o={n:c.label},k=kOf(c.path);
@@ -343,15 +346,16 @@ function packAll(){
   if(c.kids.size)o.c=pack(c);return o});
  return {v:2,t:pack(buildTrie())}}
 function unpackAll(d){
- const hs=[],nn={},wn={};
+ const hs=[],nn={},wn={},st=[];
  const walk=(list,p)=>list.forEach(o=>{
   const q=p.concat(String(o.n)),k=kOf(q);
   if(typeof o.w==='string'&&o.w.trim())wn[k]=o.w;
   if(Array.isArray(o.s)&&o.s.length)nn[k]=o.s.map(h=>({html:clean(String(h))}));
   if(Array.isArray(o.c)&&o.c.length)walk(o.c,q);
+  else if(q.length<8)st.push(q);
   else if(q.length===8){const m=/^(\d+)\w* (enquiry|request)$/.exec(q[7]);
    hs.push({scheme:q[0],category:q[1],enquiry:q[2],header:q[3],subject:q[4],topic:q[5],action:q[6],count:m?+m[1]:1,type:m&&m[2]==='request'?'req':'enq'})}});
- walk(d.t,[]);return {headers:hs,notes:nn,when:wn}}
+ walk(d.t,[]);return {headers:hs,notes:nn,when:wn,stubs:st}}
 $('#aSave').onclick=()=>saveBox('Save everything',JSON.stringify(packAll()));
 $('#aLoad').onclick=()=>loadBox('Load everything','Pasting replaces the whole hierarchy, descriptions and sentences.',d=>{
  let nd;
@@ -361,7 +365,7 @@ $('#aLoad').onclick=()=>loadBox('Load everything','Pasting replaces the whole hi
    if(!Array.isArray(n.chain)||!Array.isArray(n.sentences))return;
    const k=kOf(n.chain.map(String));nn[k]=(nn[k]||[]).concat(n.sentences.map(h=>({html:clean(String(h))})))});
   (Array.isArray(d.when)?d.when:[]).forEach(w=>{if(Array.isArray(w.chain)&&typeof w.text==='string'&&w.text.trim())wn[kOf(w.chain.map(String))]=w.text});
-  nd={headers:hs,notes:nn,when:wn}}
+  nd={headers:hs,notes:nn,when:wn,stubs:[]}}
  data=nd;sel=null;open.clear();persist();renderTree();renderView()});
 function saveNotes(){saveBox('Save sentence list',JSON.stringify({chain:sel,sentences:(data.notes[kOf(sel)]||[]).map(s=>s.html)},null,2))}
 function loadNotes(){loadBox('Load sentence list','Each list remembers its chain. Sentences go back under that chain, which is recreated if it no longer exists.',d=>{
@@ -384,27 +388,39 @@ function fullText(p){const h=p.slice(0,3).join(' > '),b=body(p);return b?h+' | '
 async function copyText(t){try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement('textarea');a.value=t;document.body.append(a);a.select();document.execCommand('copy');a.remove()}}
 function confirmBox(msg,yes){const p=el('p',null,msg);let close;const ok=el('button','btn pri','Delete'),cl=el('button','btn','Cancel');cl.onclick=()=>close();ok.onclick=()=>{close();yes()};close=modal('Please confirm',p,[cl,ok])}
 const under=(h,p,n)=>pathOf(h).slice(0,n).every((x,i)=>x===p[i]);
+function pre(a,b){return b.length<=a.length&&b.every((x,i)=>a[i]===x)}
 function dup(path){
- const L=path.length-1,src=data.headers.filter(h=>under(h,path,path.length));
- if(!src.length)return;
- const sibs=new Set(data.headers.filter(h=>under(h,path,L)).map(h=>pathOf(h)[L]));
- const np=path.slice(),clones=[];
+ if(path.length===8){doDup(path,false);return}
+ const w=el('div');
+ w.append(el('p',null,'Everything inside: copies this folder with every folder and header below it.'),el('p',null,'This folder only: copies just this one, left empty with nothing below it.'));
+ let close;const b1=el('button','btn pri','Everything inside'),b2=el('button','btn','This folder only'),cl=el('button','btn','Cancel');
+ b1.onclick=()=>{close();doDup(path,false)};b2.onclick=()=>{close();doDup(path,true)};cl.onclick=()=>close();
+ close=modal('Duplicate "'+path[path.length-1]+'"',w,[cl,b2,b1])}
+function doDup(path,empty){
+ const L=path.length-1,n8=path.length,par=path.slice(0,L);
+ const src=empty?[]:data.headers.filter(h=>under(h,path,n8));
+ const stubsUnder=empty?[]:data.stubs.filter(sp=>pre(sp,path));
+ const sibs=new Set();
+ data.headers.forEach(h=>{if(under(h,path,L))sibs.add(pathOf(h)[L])});
+ data.stubs.forEach(sp=>{if(sp.length>L&&pre(sp,par))sibs.add(sp[L])});
+ const np=path.slice(),clones=[],ns=[];
  if(L===7){
-  const h0=src[0];let n=h0.count+1;
-  while(sibs.has(cLabel({count:n,type:h0.type})))n++;
-  src.forEach(h=>clones.push({...h,count:n}));np[7]=cLabel({count:n,type:h0.type});
+  const all=data.headers.filter(h=>under(h,path,8));let n=all[0].count+1;
+  while(sibs.has(cLabel({count:n,type:all[0].type})))n++;
+  all.forEach(h=>clones.push({...h,count:n}));np[7]=cLabel({count:n,type:all[0].type});
  }else{
   let name;
   if(L===4){name=SUBJECTS.find(x=>!sibs.has(x));if(!name){toast('Every subject is already used here');return}}
   else{name=path[L]+' (copy)';let i=2;while(sibs.has(name))name=`${path[L]} (copy ${i++})`}
-  src.forEach(h=>clones.push({...h,[FIELDS[L]]:name}));np[L]=name;
+  src.forEach(h=>clones.push({...h,[FIELDS[L]]:name}));
+  stubsUnder.forEach(sp=>{const q=sp.slice();q[L]=name;ns.push(q)});
+  np[L]=name;if(empty)ns.push(np.slice());
  }
- data.headers.push(...clones);
- for(const key of Object.keys(data.notes)){const p=JSON.parse(key);
-  if(p.length>=path.length&&path.every((x,i)=>x===p[i])){const q=p.slice();q[L]=np[L];data.notes[kOf(q)]=data.notes[key].map(x=>({...x}))}}
+ data.headers.push(...clones);data.stubs.push(...ns);
+ const mt=p=>p.length>=n8&&path.every((x,i)=>x===p[i])&&(!empty||p.length===n8);
+ for(const m of [data.notes,data.when])for(const key of Object.keys(m)){const p=JSON.parse(key);
+  if(mt(p)){const q=p.slice();q[L]=np[L];m[kOf(q)]=Array.isArray(m[key])?m[key].map(x=>({...x})):m[key]}}
  for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
- for(const key of Object.keys(data.when)){const p=JSON.parse(key);
-  if(p.length>=path.length&&path.every((x,i)=>x===p[i])){const q=p.slice();q[L]=np[L];data.when[kOf(q)]=data.when[key]}}
  sel=np;persist();renderTree();renderView();toast('Duplicated')}
 function renameNode(path){
  const L=path.length-1,w=el('div'),msg=el('div','msg');
@@ -426,6 +442,7 @@ function renameNode(path){
   else{nv=inp.value.trim();if(!nv){msg.textContent='Enter a name.';return}
    data.headers.forEach(h=>{if(under(h,path,path.length))h[FIELDS[L]]=nv})}
   np[L]=nv;
+  data.stubs=data.stubs.map(sp=>{if(sp.length>L&&pre(sp,path)){const q=sp.slice();q[L]=nv;return q}return sp});
   const nn={};for(const key of Object.keys(data.notes)){const p=JSON.parse(key);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;const k=kOf(p);nn[k]=(nn[k]||[]).concat(data.notes[key])}
   data.notes=nn;
   const wn={};for(const key of Object.keys(data.when)){const p=JSON.parse(key);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;const k=kOf(p);wn[k]=wn[k]?wn[k]+'\n\n'+data.when[key]:data.when[key]}
