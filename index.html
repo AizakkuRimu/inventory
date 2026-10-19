@@ -27,6 +27,9 @@ header.top{flex-wrap:wrap;display:flex;align-items:center;gap:12px;padding:12px 
 main{flex:1;display:flex;min-height:0}
 aside{width:340px;max-width:44%;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .side-h{padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.search{padding:8px 16px;border-bottom:1px solid var(--line)}
+.search input{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:7px 10px;color:var(--beige)}
+.row .lab.hit{box-shadow:inset 0 -2px var(--beige2)}
 #tree{overflow:auto;padding:8px 6px 24px;flex:1}
 .row{display:flex;align-items:center;gap:2px;border-radius:3px;padding:2px 4px;white-space:nowrap}
 .row:hover{background:var(--panel2)}
@@ -127,6 +130,7 @@ section.view>*{flex:none}
    <button class="btn sm" id="collapse">Collapse all</button>
    <button class="btn sm" id="sort" title="Change sort order">A–Z</button>
   </div>
+  <div class="search"><input id="q" type="search" placeholder="Search the hierarchy" aria-label="Search the hierarchy" autocomplete="off"></div>
   <div id="tree"></div>
  </aside>
  <section class="view" id="view"></section>
@@ -168,23 +172,26 @@ function renderTree(){
  const t=$('#tree');t.innerHTML='';
  const root=buildTrie();
  if(!root.kids.size){t.append(el('div','empty','No headers yet. Add one, or load a saved hierarchy.'));return}
- const draw=(node,parent,lv)=>{
-  [...node.kids.values()].sort((a,b)=>sortDir*a.label.localeCompare(b.label,undefined,{numeric:true})).forEach(c=>{
+ const q=$('#q').value.trim().toLowerCase();
+ const mark=n=>{let any=false;n.kids.forEach(c=>{if(mark(c))any=true});n.self=!!(q&&n.label&&n.label.toLowerCase().includes(q));n.sub=any;return n.self||any};
+ mark(root);
+ const draw=(node,parent,lv,under)=>{
+  [...node.kids.values()].filter(c=>!q||under||c.self||c.sub).sort((a,b)=>sortDir*a.label.localeCompare(b.label,undefined,{numeric:true})).forEach(c=>{
    const k=kOf(c.path),has=c.kids.size>0,wrap=el('div','lv'+lv);
    const row=el('div','row'+(sel&&kOf(sel)===k?' sel':''));
-   const car=el('button','car'+(has?'':' leaf'),open.has(k)?'▾':'▸');
+   const car=el('button','car'+(has?'':' leaf'),(open.has(k)||(q&&c.sub))?'▾':'▸');
    car.setAttribute('aria-label','Toggle');
    car.onclick=()=>{open.has(k)?open.delete(k):open.add(k);renderTree()};
-   const lab=el('button','lab',c.label);lab.title=LEVELS[lv];
+   const lab=el('button','lab'+(c.self?' hit':''),c.label);lab.title=LEVELS[lv];
    lab.onclick=()=>{sel=c.path;if(has)open.add(k);renderTree();renderView();$('#side').classList.remove('open')};
    const plus=el('button','plus','+');plus.title='Duplicate '+c.label;plus.setAttribute('aria-label','Duplicate '+c.label);
    plus.onclick=()=>dup(c.path);
    const pen=el('button','pen','✎');pen.title='Edit '+c.label;pen.setAttribute('aria-label','Edit '+c.label);
    pen.onclick=()=>renameNode(c.path);
    row.append(car,lab,pen,plus);wrap.append(row);
-   if(has&&open.has(k)){const kids=el('div','kids');draw(c,kids,lv+1);wrap.append(kids)}
+   if(has&&(open.has(k)||(q&&c.sub))){const kids=el('div','kids');draw(c,kids,lv+1,under||c.self);wrap.append(kids)}
    parent.append(wrap)})};
- draw(root,t,0)}
+ draw(root,t,0,false);if(q&&!t.children.length)t.append(el('div','empty','No titles match "'+$('#q').value.trim()+'".'))}
 
 function renderView(){
  const v=$('#view');v.innerHTML='';
@@ -328,16 +335,34 @@ function parseHeaders(d){
  return arr.map(h=>({...h,count:Number(h.count)||1,type:h.type==='req'?'req':'enq'}))}
 $('#hLoad').onclick=()=>loadBox('Load hierarchy','Pasting replaces the current hierarchy. Sentences stay as they are.',d=>{
  data.headers=parseHeaders(d);sel=null;open.clear();persist();renderTree();renderView()});
-$('#aSave').onclick=()=>saveBox('Save everything',JSON.stringify({app:'inventory',version:1,headers:data.headers,
- notes:Object.entries(data.notes).map(([k,v])=>({chain:JSON.parse(k),sentences:v.map(x=>x.html)})),
- when:Object.entries(data.when).map(([k,v])=>({chain:JSON.parse(k),text:v}))},null,2));
-$('#aLoad').onclick=()=>loadBox('Load everything','Pasting replaces the whole hierarchy and every sentence list, each sentence going back under its own chain.',d=>{
- const hs=parseHeaders(d),nn={};
- (Array.isArray(d.notes)?d.notes:[]).forEach(n=>{
-  if(!Array.isArray(n.chain)||!Array.isArray(n.sentences))return;
-  const k=kOf(n.chain.map(String));nn[k]=(nn[k]||[]).concat(n.sentences.map(h=>({html:clean(String(h))})))});
- const wn={};(Array.isArray(d.when)?d.when:[]).forEach(w=>{if(Array.isArray(w.chain)&&typeof w.text==='string'&&w.text.trim())wn[kOf(w.chain.map(String))]=w.text});
- data={headers:hs,notes:nn,when:wn};sel=null;open.clear();persist();renderTree();renderView()});
+// compact format: one nested tree, with each title's description (w) and sentences (s) stored on its own node
+function packAll(){
+ const pack=n=>[...n.kids.values()].map(c=>{const o={n:c.label},k=kOf(c.path);
+  if(data.when[k])o.w=data.when[k];
+  if(data.notes[k]&&data.notes[k].length)o.s=data.notes[k].map(x=>x.html);
+  if(c.kids.size)o.c=pack(c);return o});
+ return {v:2,t:pack(buildTrie())}}
+function unpackAll(d){
+ const hs=[],nn={},wn={};
+ const walk=(list,p)=>list.forEach(o=>{
+  const q=p.concat(String(o.n)),k=kOf(q);
+  if(typeof o.w==='string'&&o.w.trim())wn[k]=o.w;
+  if(Array.isArray(o.s)&&o.s.length)nn[k]=o.s.map(h=>({html:clean(String(h))}));
+  if(Array.isArray(o.c)&&o.c.length)walk(o.c,q);
+  else if(q.length===8){const m=/^(\d+)\w* (enquiry|request)$/.exec(q[7]);
+   hs.push({scheme:q[0],category:q[1],enquiry:q[2],header:q[3],subject:q[4],topic:q[5],action:q[6],count:m?+m[1]:1,type:m&&m[2]==='request'?'req':'enq'})}});
+ walk(d.t,[]);return {headers:hs,notes:nn,when:wn}}
+$('#aSave').onclick=()=>saveBox('Save everything',JSON.stringify(packAll()));
+$('#aLoad').onclick=()=>loadBox('Load everything','Pasting replaces the whole hierarchy, descriptions and sentences.',d=>{
+ let nd;
+ if(d&&d.v===2&&Array.isArray(d.t))nd=unpackAll(d);
+ else{const hs=parseHeaders(d),nn={},wn={};
+  (Array.isArray(d.notes)?d.notes:[]).forEach(n=>{
+   if(!Array.isArray(n.chain)||!Array.isArray(n.sentences))return;
+   const k=kOf(n.chain.map(String));nn[k]=(nn[k]||[]).concat(n.sentences.map(h=>({html:clean(String(h))})))});
+  (Array.isArray(d.when)?d.when:[]).forEach(w=>{if(Array.isArray(w.chain)&&typeof w.text==='string'&&w.text.trim())wn[kOf(w.chain.map(String))]=w.text});
+  nd={headers:hs,notes:nn,when:wn}}
+ data=nd;sel=null;open.clear();persist();renderTree();renderView()});
 function saveNotes(){saveBox('Save sentence list',JSON.stringify({chain:sel,sentences:(data.notes[kOf(sel)]||[]).map(s=>s.html)},null,2))}
 function loadNotes(){loadBox('Load sentence list','Each list remembers its chain. Sentences go back under that chain, which is recreated if it no longer exists.',d=>{
  const a=Array.isArray(d)?d:d.sentences;
@@ -451,6 +476,7 @@ $('#add').onclick=()=>{
 
 $('#expand').onclick=()=>{(function w(n,p){n.kids.forEach(c=>{if(c.kids.size){open.add(kOf(c.path));w(c)}})})(buildTrie());renderTree()};
 $('#collapse').onclick=()=>{open.clear();renderTree()};
+$('#q').oninput=renderTree;
 $('#sort').onclick=e=>{sortDir*=-1;e.target.textContent=sortDir>0?'A–Z':'Z–A';renderTree()};
 $('#menu').onclick=()=>$('#side').classList.toggle('open');
 
