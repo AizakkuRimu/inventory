@@ -50,7 +50,12 @@ aside{width:340px;max-width:44%;background:var(--panel);border-right:1px solid v
 .lv1>.row .lab,.lv2>.row .lab{font-family:var(--serif)}
 .kids{margin-left:13px;border-left:1px solid var(--line);padding-left:3px}
 .empty{color:var(--beige2);padding:16px}
-section.view{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+section.view{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;overflow-y:auto}
+section.view>*{flex:none}
+.when{padding:18px 28px 0}
+.when h3{margin:0 0 10px;font:600 18px var(--serif);color:var(--sand)}
+.when textarea{width:100%;min-height:96px;resize:vertical;background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:10px 12px;color:var(--beige);font:16px/1.55 var(--serif)}
+.when textarea::placeholder{color:var(--beige2)}
 .chain{padding:22px 28px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
 .chain h2{margin:0 0 12px;font:400 15px var(--sans);color:var(--beige2)}
 .crumbs{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 10px}
@@ -59,10 +64,10 @@ section.view{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
 .crumb span{font:400 22px/1.2 var(--serif);color:var(--sand)}
 .sep{font:400 22px var(--serif);color:var(--beige2);padding-bottom:0}
 .chain-act{margin-top:14px;display:flex;gap:8px}
-.notes{flex:1;display:flex;flex-direction:column;min-height:0;padding:18px 28px 20px}
+.notes{display:flex;flex-direction:column;padding:18px 28px 28px}
 .notes-h{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .notes-h h3{margin:0 auto 0 0;font:600 18px var(--serif);color:var(--sand)}
-#list{flex:1;overflow-y:auto;border:1px solid var(--line);border-radius:3px;background:var(--panel)}
+#list{max-height:340px;overflow-y:auto;border:1px solid var(--line);border-radius:3px;background:var(--panel)}
 .note{display:flex;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);font-family:var(--serif);font-size:16px;line-height:1.55}
 .note:last-child{border:0}
 .note .body{flex:1;min-width:0;overflow-wrap:anywhere}
@@ -95,7 +100,7 @@ section.view{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
  #menu{display:inline-block}
  aside{position:fixed;inset:var(--hh,54px) 0 0 0;width:auto;max-width:none;z-index:5;transform:translateX(-100%);transition:transform .2s}
  aside.open{transform:none}
- .chain,.notes{padding-left:16px;padding-right:16px}
+ .chain,.notes,.when{padding-left:16px;padding-right:16px}
  .crumb span{font-size:19px}
  .grid{grid-template-columns:1fr}
 }
@@ -127,7 +132,7 @@ section.view{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
 const LEVELS=['Scheme','Category','Enquiry','Header','Subject','Topic (Noun)','Action (Verb)','Enquiry / Request'];
 const SUBJECTS=['SC','PR','Foreigner','Foreigner (Malaysian)','Foreigner (Non-Malaysian)','Anonymous'];
 const KEY='inventory.v1';
-let data={headers:[],notes:{}};
+let data={headers:[],notes:{},when:{}};
 let sel=null, open=new Set(), sortDir=1;
 const FIELDS=['scheme','category','enquiry','header','subject','topic','action'];
 
@@ -146,7 +151,7 @@ const $=s=>document.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 
 function persist(){} // nothing is ever stored in the browser
-function restore(){try{localStorage.removeItem(KEY)}catch(e){}data={headers:[],notes:{}}}
+function restore(){try{localStorage.removeItem(KEY)}catch(e){}data={headers:[],notes:{},when:{}}}
 
 function buildTrie(){
  const root={kids:new Map()};
@@ -200,10 +205,16 @@ function renderView(){
   const k=sel.length;
   data.headers=data.headers.filter(h=>!pathOf(h).slice(0,k).every((x,i)=>x===sel[i]));
   for(const key of Object.keys(data.notes)){const p=JSON.parse(key);if(p.length>=k&&sel.every((x,i)=>x===p[i]))delete data.notes[key]}
+  for(const key of Object.keys(data.when)){const p=JSON.parse(key);if(p.length>=k&&sel.every((x,i)=>x===p[i]))delete data.when[key]}
   sel=null;persist();renderTree();renderView()});
  act.append(cp,rn,del);ch.append(act);v.append(ch);
 
  const key=kOf(sel),list=data.notes[key]||[];
+ const wh=el('div','when'),wt=el('textarea');
+ wh.append(el('h3',null,'When to use'));wt.value=data.when[key]||'';wt.placeholder='Describe when this category should be used…';
+ wt.setAttribute('aria-label','When to use');
+ wt.oninput=()=>{if(wt.value.trim())data.when[key]=wt.value;else delete data.when[key]};
+ wh.append(wt);v.append(wh);
  const n=el('div','notes'),nh=el('div','notes-h');
  nh.append(el('h3',null,'Sentences'));
  const sl=el('button','btn sm','Load list'),ss=el('button','btn sm','Save list');
@@ -311,13 +322,15 @@ function parseHeaders(d){
 $('#hLoad').onclick=()=>loadBox('Load hierarchy','Pasting replaces the current hierarchy. Sentences stay as they are.',d=>{
  data.headers=parseHeaders(d);sel=null;open.clear();persist();renderTree();renderView()});
 $('#aSave').onclick=()=>saveBox('Save everything',JSON.stringify({app:'inventory',version:1,headers:data.headers,
- notes:Object.entries(data.notes).map(([k,v])=>({chain:JSON.parse(k),sentences:v.map(x=>x.html)}))},null,2));
+ notes:Object.entries(data.notes).map(([k,v])=>({chain:JSON.parse(k),sentences:v.map(x=>x.html)})),
+ when:Object.entries(data.when).map(([k,v])=>({chain:JSON.parse(k),text:v}))},null,2));
 $('#aLoad').onclick=()=>loadBox('Load everything','Pasting replaces the whole hierarchy and every sentence list, each sentence going back under its own chain.',d=>{
  const hs=parseHeaders(d),nn={};
  (Array.isArray(d.notes)?d.notes:[]).forEach(n=>{
   if(!Array.isArray(n.chain)||!Array.isArray(n.sentences))return;
   const k=kOf(n.chain.map(String));nn[k]=(nn[k]||[]).concat(n.sentences.map(h=>({html:clean(String(h))})))});
- data={headers:hs,notes:nn};sel=null;open.clear();persist();renderTree();renderView()});
+ const wn={};(Array.isArray(d.when)?d.when:[]).forEach(w=>{if(Array.isArray(w.chain)&&typeof w.text==='string'&&w.text.trim())wn[kOf(w.chain.map(String))]=w.text});
+ data={headers:hs,notes:nn,when:wn};sel=null;open.clear();persist();renderTree();renderView()});
 function saveNotes(){saveBox('Save sentence list',JSON.stringify({chain:sel,sentences:(data.notes[kOf(sel)]||[]).map(s=>s.html)},null,2))}
 function loadNotes(){loadBox('Load sentence list','Each list remembers its chain. Sentences go back under that chain, which is recreated if it no longer exists.',d=>{
  const a=Array.isArray(d)?d:d.sentences;
@@ -358,6 +371,8 @@ function dup(path){
  for(const key of Object.keys(data.notes)){const p=JSON.parse(key);
   if(p.length>=path.length&&path.every((x,i)=>x===p[i])){const q=p.slice();q[L]=np[L];data.notes[kOf(q)]=data.notes[key].map(x=>({...x}))}}
  for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
+ for(const key of Object.keys(data.when)){const p=JSON.parse(key);
+  if(p.length>=path.length&&path.every((x,i)=>x===p[i])){const q=p.slice();q[L]=np[L];data.when[kOf(q)]=data.when[key]}}
  sel=np;persist();renderTree();renderView();toast('Duplicated')}
 function renameNode(path){
  const L=path.length-1,w=el('div'),msg=el('div','msg');
@@ -381,6 +396,8 @@ function renameNode(path){
   np[L]=nv;
   const nn={};for(const key of Object.keys(data.notes)){const p=JSON.parse(key);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;const k=kOf(p);nn[k]=(nn[k]||[]).concat(data.notes[key])}
   data.notes=nn;
+  const wn={};for(const key of Object.keys(data.when)){const p=JSON.parse(key);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;const k=kOf(p);wn[k]=wn[k]?wn[k]+'\n\n'+data.when[key]:data.when[key]}
+  data.when=wn;
   const no=new Set();open.forEach(k=>{const p=JSON.parse(k);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;no.add(kOf(p))});open=no;
   for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
   sel=np;persist();renderTree();renderView();close()};
