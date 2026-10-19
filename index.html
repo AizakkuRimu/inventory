@@ -15,7 +15,7 @@ body{background:var(--ink);color:var(--beige);font:15px/1.5 var(--sans);display:
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--beige);outline-offset:2px}
-header.top{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--ink)}
+header.top{flex-wrap:wrap;display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--ink)}
 .brand{font:600 24px var(--serif);color:var(--sand);letter-spacing:.01em;margin-right:auto}
 .btn{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:6px 12px;color:var(--beige)}
 .btn:hover{border-color:var(--beige2)}
@@ -37,9 +37,9 @@ aside{width:340px;max-width:44%;background:var(--panel);border-right:1px solid v
 .lv0>.row .lab{font:400 16px var(--serif)}
 .lv3>.row .lab{font-family:var(--serif);font-weight:700}
 .btn:disabled{opacity:.4;cursor:default}
-.row .plus{width:24px;height:22px;flex:none;border:1px solid var(--line);border-radius:3px;background:none;padding:0;line-height:1;opacity:.55;margin-left:2px}
-.row .plus:hover,.row .plus:focus-visible{opacity:1;border-color:var(--beige2)}
-.row.sel .plus{border-color:var(--ink)}
+.row .plus,.row .pen{width:24px;height:22px;flex:none;border:1px solid var(--line);border-radius:3px;background:none;padding:0;line-height:1;opacity:.55;margin-left:2px}
+.row .plus:hover,.row .plus:focus-visible,.row .pen:hover,.row .pen:focus-visible{opacity:1;border-color:var(--beige2)}
+.row.sel .plus,.row.sel .pen{border-color:var(--ink)}
 .grid label{position:relative}
 .cb{position:absolute;top:100%;left:0;right:0;margin-top:2px;max-height:168px;overflow-y:auto;background:var(--ink);border:1px solid var(--beige2);border-radius:3px;z-index:6}
 .cb.up{top:auto;bottom:100%;margin:0 0 2px}
@@ -93,7 +93,7 @@ section.view{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--beige);color:var(--ink);padding:8px 16px;border-radius:3px;z-index:20;font-weight:500}
 @media(max-width:760px){
  #menu{display:inline-block}
- aside{position:fixed;inset:54px 0 0 0;width:auto;max-width:none;z-index:5;transform:translateX(-100%);transition:transform .2s}
+ aside{position:fixed;inset:var(--hh,54px) 0 0 0;width:auto;max-width:none;z-index:5;transform:translateX(-100%);transition:transform .2s}
  aside.open{transform:none}
  .chain,.notes{padding-left:16px;padding-right:16px}
  .crumb span{font-size:19px}
@@ -108,6 +108,8 @@ section.view{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
  <div class="brand">Inventory</div>
  <button class="btn" id="hLoad">Load hierarchy</button>
  <button class="btn" id="hSave">Save hierarchy</button>
+ <button class="btn" id="aLoad">Load all</button>
+ <button class="btn pri" id="aSave">Save all</button>
 </header>
 <main>
  <aside id="side">
@@ -169,7 +171,9 @@ function renderTree(){
    lab.onclick=()=>{sel=c.path;if(has)open.add(k);renderTree();renderView();$('#side').classList.remove('open')};
    const plus=el('button','plus','+');plus.title='Duplicate '+c.label;plus.setAttribute('aria-label','Duplicate '+c.label);
    plus.onclick=()=>dup(c.path);
-   row.append(car,lab,plus);wrap.append(row);
+   const pen=el('button','pen','✎');pen.title='Edit '+c.label;pen.setAttribute('aria-label','Edit '+c.label);
+   pen.onclick=()=>renameNode(c.path);
+   row.append(car,lab,pen,plus);wrap.append(row);
    if(has&&open.has(k)){const kids=el('div','kids');draw(c,kids,lv+1);wrap.append(kids)}
    parent.append(wrap)})};
  draw(root,t,0)}
@@ -189,7 +193,7 @@ function renderView(){
  const act=el('div','chain-act');
  const cp=el('button','btn sm','Copy text');cp.disabled=!body(sel);
  cp.onclick=async()=>{await copyText(body(sel));toast('Copied')};
- const rn=el('button','btn sm','Rename');rn.hidden=[7,4].includes(sel.length-1);
+ const rn=el('button','btn sm','Edit');
  rn.onclick=()=>renameNode(sel);
  const del=el('button','btn sm danger','Delete this branch');
  del.onclick=()=>confirmBox('Delete this branch and every header under it?',()=>{
@@ -229,8 +233,15 @@ function renderView(){
   if(s.isCollapsed)document.execCommand('insertHTML',false,`<a href="${u.replace(/"/g,'&quot;')}">${u.replace(/</g,'')}</a>`);
   else document.execCommand('createLink',false,u);
   url.value='';url.hidden=true};
- tl.append(lk,url);
+ const clr=el('button',null,'Clear');clr.title='Remove formatting (keeps links)';clr.onmousedown=e=>e.preventDefault();
+ clr.onclick=()=>{const s=getSelection();
+  if(s.rangeCount&&!s.isCollapsed&&ed.contains(s.anchorNode)){const t=document.createElement('div');t.append(s.getRangeAt(0).cloneContents());document.execCommand('insertHTML',false,plain(t.innerHTML))}
+  else ed.innerHTML=plain(ed.innerHTML)};
+ tl.append(lk,url,clr);
  const ed=el('div');ed.id='ed';ed.contentEditable='true';ed.dataset.ph='Write a sentence or template for this chain…';
+ ed.addEventListener('paste',e=>{e.preventDefault();const cd=e.clipboardData,h=cd.getData('text/html');
+  const out=h?clean(h):cd.getData('text/plain').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>');
+  document.execCommand('insertHTML',false,out)});
  const foot=el('div','foot'),add=el('button','btn pri','Add sentence');
  add.onclick=()=>{const h=clean(ed.innerHTML);if(!ed.textContent.trim())return;
   (data.notes[key]=data.notes[key]||[]).push({html:h});persist();renderView();
@@ -239,14 +250,29 @@ function renderView(){
 
 // keep stored/pasted HTML to a small safe set
 function clean(html){
- const d=new DOMParser().parseFromString('<div>'+(html||'')+'</div>','text/html').body.firstChild;
+ const d=new DOMParser().parseFromString('<div>'+(html||'')+'</div>','text/html').body.firstChild,doc=d.ownerDocument;
  const ok={B:1,STRONG:1,U:1,UL:1,OL:1,LI:1,A:1,BR:1,I:1,EM:1,DIV:1,P:1};
  (function walk(n){[...n.childNodes].forEach(c=>{
   if(c.nodeType===3)return;
-  if(c.nodeType!==1||!ok[c.tagName]){c.remove();return}
-  [...c.attributes].forEach(a=>{if(!(c.tagName==='A'&&a.name==='href'))c.removeAttribute(a.name)});
-  if(c.tagName==='A'){const h=c.getAttribute('href')||'';if(!/^(https?:|mailto:)/i.test(h))c.removeAttribute('href');c.target='_blank';c.rel='noopener noreferrer'}
-  walk(c)})})(d);
+  if(c.nodeType!==1||/^(SCRIPT|STYLE|META|HEAD|TITLE|LINK)$/.test(c.tagName)){c.remove();return}
+  walk(c);
+  const t=c.tagName,st=(c.getAttribute('style')||'').toLowerCase();
+  const bold=/font-weight:\s*(bold|[6-9]00)/.test(st),und=/text-decoration[^;]*underline/.test(st),norm=/font-weight:\s*(normal|[1-4]00)/.test(st);
+  if(!ok[t]||((t==='B'||t==='STRONG')&&norm)){
+   let h=doc.createDocumentFragment();[...c.childNodes].forEach(k=>h.append(k));
+   const wrap=tag=>{const e=doc.createElement(tag);e.append(h);h=e};
+   if(bold)wrap('b');if(und)wrap('u');if(/^H[1-6]$/.test(t))wrap('div');
+   c.replaceWith(h);return}
+  [...c.attributes].forEach(a=>{if(!(t==='A'&&a.name==='href'))c.removeAttribute(a.name)});
+  if(t==='A'){const h=c.getAttribute('href')||'';if(!/^(https?:|mailto:)/i.test(h))c.removeAttribute('href');c.target='_blank';c.rel='noopener noreferrer'}
+ })})(d);
+ return d.innerHTML}
+// strips bold, underline, italic and lists; keeps links
+function plain(html){
+ const d=new DOMParser().parseFromString('<div>'+html+'</div>','text/html').body.firstChild;
+ (function w(n){[...n.childNodes].forEach(c=>{if(c.nodeType!==1)return;w(c);
+  if(/^(B|STRONG|U|I|EM|UL|OL)$/.test(c.tagName))c.replaceWith(...c.childNodes);
+  else if(c.tagName==='LI'){const dv=document.createElement('div');dv.append(...c.childNodes);c.replaceWith(dv)}})})(d);
  return d.innerHTML}
 
 /* modals */
@@ -271,24 +297,41 @@ function loadBox(title,hint,apply){
  ta.placeholder='Paste saved JSON here';b.append(el('p',null,hint),ta,msg);
  let close;const ok=el('button','btn pri','Load'),cl=el('button','btn','Cancel');
  cl.onclick=()=>close();
- ok.onclick=()=>{try{apply(JSON.parse(ta.value));close();toast('Loaded')}catch(e){msg.textContent='That text is not valid. '+e.message}};
+ ok.onclick=()=>{try{const r=apply(JSON.parse(ta.value));close();toast(r||'Loaded')}catch(e){msg.textContent='That text is not valid. '+e.message}};
  close=modal(title,b,[cl,ok]);ta.focus()}
 
 function saveHier(){saveBox('Save hierarchy',JSON.stringify({headers:data.headers},null,2))}
 $('#hSave').onclick=saveHier;
-$('#hLoad').onclick=()=>loadBox('Load hierarchy','Pasting replaces the current hierarchy. Sentences stay as they are.',d=>{
+function parseHeaders(d){
  const arr=Array.isArray(d)?d:d.headers;
  if(!Array.isArray(arr))throw new Error('Expected a "headers" list.');
  const need=['scheme','category','enquiry','header','subject','topic','action','count','type'];
  arr.forEach((h,i)=>need.forEach(f=>{if(h[f]==null)throw new Error(`Header ${i+1} is missing "${f}".`)}));
- data.headers=arr.map(h=>({...h,count:Number(h.count)||1,type:h.type==='req'?'req':'enq'}));
- sel=null;open.clear();persist();renderTree();renderView()});
+ return arr.map(h=>({...h,count:Number(h.count)||1,type:h.type==='req'?'req':'enq'}))}
+$('#hLoad').onclick=()=>loadBox('Load hierarchy','Pasting replaces the current hierarchy. Sentences stay as they are.',d=>{
+ data.headers=parseHeaders(d);sel=null;open.clear();persist();renderTree();renderView()});
+$('#aSave').onclick=()=>saveBox('Save everything',JSON.stringify({app:'inventory',version:1,headers:data.headers,
+ notes:Object.entries(data.notes).map(([k,v])=>({chain:JSON.parse(k),sentences:v.map(x=>x.html)}))},null,2));
+$('#aLoad').onclick=()=>loadBox('Load everything','Pasting replaces the whole hierarchy and every sentence list, each sentence going back under its own chain.',d=>{
+ const hs=parseHeaders(d),nn={};
+ (Array.isArray(d.notes)?d.notes:[]).forEach(n=>{
+  if(!Array.isArray(n.chain)||!Array.isArray(n.sentences))return;
+  const k=kOf(n.chain.map(String));nn[k]=(nn[k]||[]).concat(n.sentences.map(h=>({html:clean(String(h))})))});
+ data={headers:hs,notes:nn};sel=null;open.clear();persist();renderTree();renderView()});
 function saveNotes(){saveBox('Save sentence list',JSON.stringify({chain:sel,sentences:(data.notes[kOf(sel)]||[]).map(s=>s.html)},null,2))}
-function loadNotes(){loadBox('Load sentence list','Pasted sentences are added to the list for the selected chain.',d=>{
+function loadNotes(){loadBox('Load sentence list','Each list remembers its chain. Sentences go back under that chain, which is recreated if it no longer exists.',d=>{
  const a=Array.isArray(d)?d:d.sentences;
  if(!Array.isArray(a))throw new Error('Expected a "sentences" list.');
- const k=kOf(sel);data.notes[k]=(data.notes[k]||[]).concat(a.map(h=>({html:clean(String(h))})));
- persist();renderView()})}
+ let target=sel,msg='';
+ if(!Array.isArray(d)&&Array.isArray(d.chain)&&d.chain.length){
+  const p=d.chain.map(String);
+  if(data.headers.some(h=>under(h,p,p.length)))target=p;
+  else{const m=p.length===8&&/^(\d+)\w* (enquiry|request)$/.exec(p[7]);
+   if(m){data.headers.push({scheme:p[0],category:p[1],enquiry:p[2],header:p[3],subject:p[4],topic:p[5],action:p[6],count:+m[1],type:m[2]==='request'?'req':'enq'});target=p;msg='Loaded. Chain recreated'}
+   else msg='Chain not found, so sentences were added to the selected chain'}}
+ const k=kOf(target);data.notes[k]=(data.notes[k]||[]).concat(a.map(h=>({html:clean(String(h))})));
+ for(let i=1;i<target.length;i++)open.add(kOf(target.slice(0,i)));
+ sel=target;persist();renderTree();renderView();return msg})}
 
 /* chain text, duplicate, rename */
 function body(p){let s='';if(p[4])s=p[4];if(p[3])s+=(s?' - ':'')+p[3];if(p[5])s+=' : '+p[5];if(p[6])s+=' | '+p[6];if(p[7])s+=' ('+p[7]+')';return s}
@@ -317,20 +360,32 @@ function dup(path){
  for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
  sel=np;persist();renderTree();renderView();toast('Duplicated')}
 function renameNode(path){
- const L=path.length-1,inp=el('input');inp.type='text';inp.value=path[L];
- inp.style.cssText='width:100%;background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:8px 10px';
- const msg=el('div','msg'),w=el('div');w.append(inp,msg);
- let close;const ok=el('button','btn pri','Rename'),cl=el('button','btn','Cancel');cl.onclick=()=>close();
- inp.onkeydown=e=>{if(e.key==='Enter')ok.click()};
- ok.onclick=()=>{const nv=inp.value.trim();if(!nv){msg.textContent='Enter a name.';return}
-  const np=path.slice();np[L]=nv;
-  data.headers.forEach(h=>{if(under(h,path,path.length))h[FIELDS[L]]=nv});
+ const L=path.length-1,w=el('div'),msg=el('div','msg');
+ const sty='background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:8px 10px;width:100%';
+ let inp,num,ty;
+ if(L===4){inp=el('select');SUBJECTS.forEach(x=>inp.append(new Option(x,x)));inp.value=path[4];inp.style.cssText=sty;w.append(inp)}
+ else if(L===7){const h0=data.headers.find(h=>under(h,path,8));
+  num=el('input');num.type='number';num.min=1;num.value=h0.count;ty=el('select');
+  ty.append(new Option('Enquiry','enq'),new Option('Request','req'));ty.value=h0.type;
+  num.style.cssText=sty;ty.style.cssText=sty;const r=el('div');r.style.cssText='display:flex;gap:8px';r.append(num,ty);w.append(r)}
+ else{inp=el('input');inp.type='text';inp.value=path[L];inp.style.cssText=sty;w.append(inp)}
+ w.append(msg);
+ let close;const ok=el('button','btn pri','Save'),cl=el('button','btn','Cancel');cl.onclick=()=>close();
+ w.onkeydown=e=>{if(e.key==='Enter')ok.click()};
+ ok.onclick=()=>{
+  const np=path.slice();let nv;
+  if(L===7){const n=Math.max(1,parseInt(num.value)||1);nv=cLabel({count:n,type:ty.value});
+   data.headers.forEach(h=>{if(under(h,path,8)){h.count=n;h.type=ty.value}})}
+  else{nv=inp.value.trim();if(!nv){msg.textContent='Enter a name.';return}
+   data.headers.forEach(h=>{if(under(h,path,path.length))h[FIELDS[L]]=nv})}
+  np[L]=nv;
   const nn={};for(const key of Object.keys(data.notes)){const p=JSON.parse(key);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;const k=kOf(p);nn[k]=(nn[k]||[]).concat(data.notes[key])}
   data.notes=nn;
   const no=new Set();open.forEach(k=>{const p=JSON.parse(k);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;no.add(kOf(p))});open=no;
   for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
   sel=np;persist();renderTree();renderView();close()};
- close=modal('Rename "'+path[L]+'"',w,[cl,ok]);inp.focus();inp.select()}
+ close=modal(L===7?'Edit count':L===4?'Change subject':'Rename "'+path[L]+'"',w,[cl,ok]);
+ (inp||num).focus();if(inp&&inp.select&&inp.type==='text')inp.select()}
 
 /* add header */
 $('#add').onclick=()=>{
@@ -375,6 +430,7 @@ $('#collapse').onclick=()=>{open.clear();renderTree()};
 $('#sort').onclick=e=>{sortDir*=-1;e.target.textContent=sortDir>0?'A–Z':'Z–A';renderTree()};
 $('#menu').onclick=()=>$('#side').classList.toggle('open');
 
+const hh=()=>document.documentElement.style.setProperty('--hh',$('header.top').offsetHeight+'px');hh();addEventListener('resize',hh);
 restore();renderTree();renderView();
 </script>
 </body>
