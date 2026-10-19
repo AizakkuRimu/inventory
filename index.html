@@ -145,8 +145,8 @@ const kOf=p=>JSON.stringify(p);
 const $=s=>document.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 
-function persist(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
-function restore(){try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&Array.isArray(d.headers)){data={headers:d.headers,notes:d.notes||{}};return}}}catch(e){}data=JSON.parse(JSON.stringify(SEED))}
+function persist(){} // nothing is ever stored in the browser
+function restore(){try{localStorage.removeItem(KEY)}catch(e){}data={headers:[],notes:{}}}
 
 function buildTrie(){
  const root={kids:new Map()};
