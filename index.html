@@ -34,7 +34,19 @@ aside{width:340px;max-width:44%;background:var(--panel);border-right:1px solid v
 .row .car{width:20px;height:22px;border:0;background:none;color:inherit;opacity:.8;flex:none;padding:0}
 .row .car.leaf{visibility:hidden}
 .row .lab{flex:1;text-align:left;background:none;border:0;padding:3px 4px;overflow:hidden;text-overflow:ellipsis}
-.lv0>.row .lab{font:600 16px var(--serif)}
+.lv0>.row .lab{font:400 16px var(--serif)}
+.lv3>.row .lab{font-family:var(--serif);font-weight:700}
+.btn:disabled{opacity:.4;cursor:default}
+.row .plus{width:24px;height:22px;flex:none;border:1px solid var(--line);border-radius:3px;background:none;padding:0;line-height:1;opacity:.55;margin-left:2px}
+.row .plus:hover,.row .plus:focus-visible{opacity:1;border-color:var(--beige2)}
+.row.sel .plus{border-color:var(--ink)}
+.grid label{position:relative}
+.cb{position:absolute;top:100%;left:0;right:0;margin-top:2px;max-height:168px;overflow-y:auto;background:var(--ink);border:1px solid var(--beige2);border-radius:3px;z-index:6}
+.cb.up{top:auto;bottom:100%;margin:0 0 2px}
+.cb .opt{display:block;width:100%;text-align:left;background:none;border:0;padding:6px 10px;color:var(--beige)}
+.cb .opt:hover{background:var(--panel2)}
+.cb .none{padding:8px 10px;color:var(--beige2);font-size:13px}
+.ctext{margin-top:14px;padding:10px 12px;background:var(--ink);border:1px solid var(--line);border-radius:3px;font:15px/1.5 var(--serif);color:var(--sand);overflow-wrap:anywhere}
 .lv1>.row .lab,.lv2>.row .lab{font-family:var(--serif)}
 .kids{margin-left:13px;border-left:1px solid var(--line);padding-left:3px}
 .empty{color:var(--beige2);padding:16px}
@@ -103,6 +115,7 @@ section.view{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
    <button class="btn pri sm" id="add">Add header</button>
    <button class="btn sm" id="expand">Expand all</button>
    <button class="btn sm" id="collapse">Collapse all</button>
+   <button class="btn sm" id="sort" title="Change sort order">A–Z</button>
   </div>
   <div id="tree"></div>
  </aside>
@@ -113,7 +126,8 @@ const LEVELS=['Scheme','Category','Enquiry','Header','Subject','Topic (Noun)','A
 const SUBJECTS=['SC','PR','Foreigner','Anonymous'];
 const KEY='inventory.v1';
 let data={headers:[],notes:{}};
-let sel=null, open=new Set();
+let sel=null, open=new Set(), sortDir=1;
+const FIELDS=['scheme','category','enquiry','header','subject','topic','action'];
 
 const SEED={headers:[
  {scheme:'Housing',category:'Repairs',enquiry:'Maintenance',header:'Broken heater',subject:'SC',topic:'Heater',action:'Repair',count:1,type:'enq'},
@@ -145,7 +159,7 @@ function renderTree(){
  const root=buildTrie();
  if(!root.kids.size){t.append(el('div','empty','No headers yet. Add one, or load a saved hierarchy.'));return}
  const draw=(node,parent,lv)=>{
-  [...node.kids.values()].sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true})).forEach(c=>{
+  [...node.kids.values()].sort((a,b)=>sortDir*a.label.localeCompare(b.label,undefined,{numeric:true})).forEach(c=>{
    const k=kOf(c.path),has=c.kids.size>0,wrap=el('div','lv'+lv);
    const row=el('div','row'+(sel&&kOf(sel)===k?' sel':''));
    const car=el('button','car'+(has?'':' leaf'),open.has(k)?'▾':'▸');
@@ -153,7 +167,9 @@ function renderTree(){
    car.onclick=()=>{open.has(k)?open.delete(k):open.add(k);renderTree()};
    const lab=el('button','lab',c.label);lab.title=LEVELS[lv];
    lab.onclick=()=>{sel=c.path;if(has)open.add(k);renderTree();renderView();$('#side').classList.remove('open')};
-   row.append(car,lab);wrap.append(row);
+   const plus=el('button','plus','+');plus.title='Duplicate '+c.label;plus.setAttribute('aria-label','Duplicate '+c.label);
+   plus.onclick=()=>dup(c.path);
+   row.append(car,lab,plus);wrap.append(row);
    if(has&&open.has(k)){const kids=el('div','kids');draw(c,kids,lv+1);wrap.append(kids)}
    parent.append(wrap)})};
  draw(root,t,0)}
@@ -169,15 +185,19 @@ function renderView(){
   if(i>0)cr.append(el('span','sep','>'));
   const c=el('div','crumb');c.append(el('small',null,LEVELS[i]),el('span',null,p));cr.append(c)});
  ch.append(cr);
+ const ct=el('div','ctext',fullText(sel));ch.append(ct);
  const act=el('div','chain-act');
+ const cp=el('button','btn sm','Copy text');cp.disabled=!body(sel);
+ cp.onclick=async()=>{await copyText(body(sel));toast('Copied')};
+ const rn=el('button','btn sm','Rename');rn.hidden=[7,4].includes(sel.length-1);
+ rn.onclick=()=>renameNode(sel);
  const del=el('button','btn sm danger','Delete this branch');
- del.onclick=()=>{
-  if(!confirm('Delete this branch and every header under it?'))return;
+ del.onclick=()=>confirmBox('Delete this branch and every header under it?',()=>{
   const k=sel.length;
   data.headers=data.headers.filter(h=>!pathOf(h).slice(0,k).every((x,i)=>x===sel[i]));
   for(const key of Object.keys(data.notes)){const p=JSON.parse(key);if(p.length>=k&&sel.every((x,i)=>x===p[i]))delete data.notes[key]}
-  sel=null;persist();renderTree();renderView()};
- act.append(del);ch.append(act);v.append(ch);
+  sel=null;persist();renderTree();renderView()});
+ act.append(cp,rn,del);ch.append(act);v.append(ch);
 
  const key=kOf(sel),list=data.notes[key]||[];
  const n=el('div','notes'),nh=el('div','notes-h');
@@ -234,7 +254,7 @@ function modal(title,body,acts){
  const s=el('div','scrim'),m=el('div','modal');
  m.setAttribute('role','dialog');m.append(el('h3',null,title),body);
  const a=el('div','acts');acts.forEach(x=>a.append(x));m.append(a);s.append(m);
- const close=()=>s.remove();s.onclick=e=>{if(e.target===s)close()};
+ const close=()=>s.remove();
  document.body.append(s);return close}
 function toast(t){const e=el('div','toast',t);document.body.append(e);setTimeout(()=>e.remove(),1800)}
 
@@ -270,12 +290,66 @@ function loadNotes(){loadBox('Load sentence list','Pasted sentences are added to
  const k=kOf(sel);data.notes[k]=(data.notes[k]||[]).concat(a.map(h=>({html:clean(String(h))})));
  persist();renderView()})}
 
+/* chain text, duplicate, rename */
+function body(p){let s='';if(p[4])s=p[4];if(p[3])s+=(s?' - ':'')+p[3];if(p[5])s+=' : '+p[5];if(p[6])s+=' | '+p[6];if(p[7])s+=' ('+p[7]+')';return s}
+function fullText(p){const h=p.slice(0,3).join(' > '),b=body(p);return b?h+' | '+b:h}
+async function copyText(t){try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement('textarea');a.value=t;document.body.append(a);a.select();document.execCommand('copy');a.remove()}}
+function confirmBox(msg,yes){const p=el('p',null,msg);let close;const ok=el('button','btn pri','Delete'),cl=el('button','btn','Cancel');cl.onclick=()=>close();ok.onclick=()=>{close();yes()};close=modal('Please confirm',p,[cl,ok])}
+const under=(h,p,n)=>pathOf(h).slice(0,n).every((x,i)=>x===p[i]);
+function dup(path){
+ const L=path.length-1,src=data.headers.filter(h=>under(h,path,path.length));
+ if(!src.length)return;
+ const sibs=new Set(data.headers.filter(h=>under(h,path,L)).map(h=>pathOf(h)[L]));
+ const np=path.slice(),clones=[];
+ if(L===7){
+  const h0=src[0];let n=h0.count+1;
+  while(sibs.has(cLabel({count:n,type:h0.type})))n++;
+  src.forEach(h=>clones.push({...h,count:n}));np[7]=cLabel({count:n,type:h0.type});
+ }else{
+  let name;
+  if(L===4){name=SUBJECTS.find(x=>!sibs.has(x));if(!name){toast('All four subjects are already used here');return}}
+  else{name=path[L]+' (copy)';let i=2;while(sibs.has(name))name=`${path[L]} (copy ${i++})`}
+  src.forEach(h=>clones.push({...h,[FIELDS[L]]:name}));np[L]=name;
+ }
+ data.headers.push(...clones);
+ for(const key of Object.keys(data.notes)){const p=JSON.parse(key);
+  if(p.length>=path.length&&path.every((x,i)=>x===p[i])){const q=p.slice();q[L]=np[L];data.notes[kOf(q)]=data.notes[key].map(x=>({...x}))}}
+ for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
+ sel=np;persist();renderTree();renderView();toast('Duplicated')}
+function renameNode(path){
+ const L=path.length-1,inp=el('input');inp.type='text';inp.value=path[L];
+ inp.style.cssText='width:100%;background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:8px 10px';
+ const msg=el('div','msg'),w=el('div');w.append(inp,msg);
+ let close;const ok=el('button','btn pri','Rename'),cl=el('button','btn','Cancel');cl.onclick=()=>close();
+ inp.onkeydown=e=>{if(e.key==='Enter')ok.click()};
+ ok.onclick=()=>{const nv=inp.value.trim();if(!nv){msg.textContent='Enter a name.';return}
+  const np=path.slice();np[L]=nv;
+  data.headers.forEach(h=>{if(under(h,path,path.length))h[FIELDS[L]]=nv});
+  const nn={};for(const key of Object.keys(data.notes)){const p=JSON.parse(key);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;const k=kOf(p);nn[k]=(nn[k]||[]).concat(data.notes[key])}
+  data.notes=nn;
+  const no=new Set();open.forEach(k=>{const p=JSON.parse(k);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;no.add(kOf(p))});open=no;
+  for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
+  sel=np;persist();renderTree();renderView();close()};
+ close=modal('Rename "'+path[L]+'"',w,[cl,ok]);inp.focus();inp.select()}
+
 /* add header */
 $('#add').onclick=()=>{
  const g=el('div','grid'),f={};
  const field=(name,label,node,full)=>{const l=el('label',full?'full':'',label);l.append(node);g.append(l);f[name]=node;return node};
  const vals=k=>[...new Set(data.headers.map(h=>h[k]))];
- const txt=(name,label,list,full)=>{const i=el('input');i.type='text';if(list){const id='dl-'+name,dl=el('datalist');dl.id=id;vals(list).forEach(v=>{const o=el('option');o.value=v;dl.append(o)});i.setAttribute('list',id);i.append(dl);g.append(dl)}return field(name,label,i,full)};
+ const txt=(name,label,list)=>{
+  const l=el('label',null,label),i=el('input'),box=el('div','cb');i.type='text';i.autocomplete='off';box.hidden=true;
+  if(['topic','action'].includes(name))box.classList.add('up');
+  let typed=false;
+  const draw=()=>{box.innerHTML='';const q=typed?i.value.trim().toLowerCase():'';
+   const m=vals(list).sort((a,b)=>a.localeCompare(b)).filter(v=>v.toLowerCase().includes(q));
+   if(!m.length)box.append(el('div','none','No matches. Keep typing to add a new one.'));
+   m.forEach(v=>{const o=el('button','opt',v);o.type='button';o.onclick=()=>{i.value=v;box.hidden=true};box.append(o)})};
+  box.onmousedown=e=>e.preventDefault();
+  i.onfocus=()=>{typed=false;draw();box.hidden=false};
+  i.oninput=()=>{typed=true;draw();box.hidden=false};
+  i.onblur=()=>{box.hidden=true};
+  l.append(i,box);g.append(l);f[name]=i;return i};
  txt('scheme','Scheme','scheme');txt('category','Category','category');
  txt('enquiry','Enquiry','enquiry');txt('header','Header','header');
  const sj=el('select');SUBJECTS.forEach(s=>sj.append(new Option(s,s)));field('subject','Subject',sj);
@@ -298,6 +372,7 @@ $('#add').onclick=()=>{
 
 $('#expand').onclick=()=>{(function w(n,p){n.kids.forEach(c=>{if(c.kids.size){open.add(kOf(c.path));w(c)}})})(buildTrie());renderTree()};
 $('#collapse').onclick=()=>{open.clear();renderTree()};
+$('#sort').onclick=e=>{sortDir*=-1;e.target.textContent=sortDir>0?'A–Z':'Z–A';renderTree()};
 $('#menu').onclick=()=>$('#side').classList.toggle('open');
 
 restore();renderTree();renderView();
