@@ -56,6 +56,9 @@ section.view>*{flex:none}
 .when h3{margin:0 0 10px;font:600 18px var(--serif);color:var(--sand)}
 .when textarea{width:100%;min-height:96px;resize:vertical;background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:10px 12px;color:var(--beige);font:16px/1.55 var(--serif)}
 .when textarea::placeholder{color:var(--beige2)}
+.when-h{display:flex;align-items:center;margin-bottom:10px}
+.when .when-h h3{margin:0 auto 0 0}
+.when-txt{white-space:pre-wrap;background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:10px 12px;font:16px/1.55 var(--serif);overflow-wrap:anywhere}
 .chain{padding:22px 28px 18px;border-bottom:1px solid var(--line);background:var(--panel)}
 .chain h2{margin:0 0 12px;font:400 15px var(--sans);color:var(--beige2)}
 .crumbs{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 10px}
@@ -210,11 +213,15 @@ function renderView(){
  act.append(cp,rn,del);ch.append(act);v.append(ch);
 
  const key=kOf(sel),list=data.notes[key]||[];
- const wh=el('div','when'),wt=el('textarea');
- wh.append(el('h3',null,'When to use'));wt.value=data.when[key]||'';wt.placeholder='Describe when this category should be used…';
- wt.setAttribute('aria-label','When to use');
- wt.oninput=()=>{if(wt.value.trim())data.when[key]=wt.value;else delete data.when[key]};
- wh.append(wt);v.append(wh);
+ const wh=el('div','when'),whh=el('div','when-h'),wb=el('button','btn sm'),wbody=el('div');
+ whh.append(el('h3',null,'When to use'),wb);wh.append(whh,wbody);
+ const drawWhen=edit=>{wbody.innerHTML='';
+  if(edit){const wt=el('textarea');wt.value=data.when[key]||'';wt.placeholder='Describe when this category should be used…';
+   wt.setAttribute('aria-label','When to use');wbody.append(wt);
+   wb.textContent='Save';wb.className='btn pri sm';
+   wb.onclick=()=>{const t=wt.value.trim();if(t){data.when[key]=t;drawWhen(false)}else{delete data.when[key];wt.value=''}}}
+  else{wbody.append(el('div','when-txt',data.when[key]));wb.textContent='Edit';wb.className='btn sm';wb.onclick=()=>drawWhen(true)}};
+ drawWhen(!data.when[key]);v.append(wh);
  const n=el('div','notes'),nh=el('div','notes-h');
  nh.append(el('h3',null,'Sentences'));
  const sl=el('button','btn sm','Load list'),ss=el('button','btn sm','Save list');
