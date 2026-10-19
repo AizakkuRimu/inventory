@@ -125,7 +125,7 @@ section.view{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
 </main>
 <script>
 const LEVELS=['Scheme','Category','Enquiry','Header','Subject','Topic (Noun)','Action (Verb)','Enquiry / Request'];
-const SUBJECTS=['SC','PR','Foreigner','Anonymous'];
+const SUBJECTS=['SC','PR','Foreigner','Foreigner (Malaysian)','Foreigner (Non-Malaysian)','Anonymous'];
 const KEY='inventory.v1';
 let data={headers:[],notes:{}};
 let sel=null, open=new Set(), sortDir=1;
@@ -350,7 +350,7 @@ function dup(path){
   src.forEach(h=>clones.push({...h,count:n}));np[7]=cLabel({count:n,type:h0.type});
  }else{
   let name;
-  if(L===4){name=SUBJECTS.find(x=>!sibs.has(x));if(!name){toast('All four subjects are already used here');return}}
+  if(L===4){name=SUBJECTS.find(x=>!sibs.has(x));if(!name){toast('Every subject is already used here');return}}
   else{name=path[L]+' (copy)';let i=2;while(sibs.has(name))name=`${path[L]} (copy ${i++})`}
   src.forEach(h=>clones.push({...h,[FIELDS[L]]:name}));np[L]=name;
  }
