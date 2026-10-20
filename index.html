@@ -56,6 +56,21 @@ aside{width:340px;max-width:44%;background:var(--panel);border-right:1px solid v
 .pick .opt{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 10px;color:var(--beige);overflow-wrap:anywhere}
 .pick .opt:hover{background:var(--panel2)}
 .pick .opt.on{background:var(--beige);color:var(--ink)}
+.info{width:30px;height:30px;border-radius:50%;border:1px solid var(--beige2);background:none;color:var(--beige);font:italic 600 17px var(--serif);padding:0;position:relative;flex:none}
+.info:hover{background:var(--panel2)}
+.info.dirty::after{content:'';position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#e0a794;border:2px solid var(--ink)}
+#infop{position:fixed;top:calc(var(--hh,54px) + 6px);right:12px;width:min(360px,calc(100vw - 24px));max-height:calc(100vh - var(--hh,54px) - 24px);overflow:auto;background:var(--panel);border:1px solid var(--beige2);border-radius:4px;padding:16px;z-index:9;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#infop[hidden]{display:none}
+#infop h4{margin:16px 0 4px;font:600 12px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--beige2)}
+#infop .big{font:400 18px/1.35 var(--serif);color:var(--sand);overflow-wrap:anywhere}
+#infop small{color:var(--beige2);font-size:13px}
+#infop .hist{list-style:none;margin:6px 0 0;padding:0;max-height:200px;overflow-y:auto;border:1px solid var(--line);border-radius:3px;background:var(--ink)}
+#infop .hist li{padding:7px 10px;border-bottom:1px solid var(--line);font-size:14px;overflow-wrap:anywhere}
+#infop .hist li:last-child{border:0}
+#infop .hist li small{display:block}
+#infop .pstat{margin-top:8px;font-size:14px}
+#infop .pstat.warn{color:#e0a794}
+#infop .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
 .cb .none{padding:8px 10px;color:var(--beige2);font-size:13px}
 .ctext{margin-top:14px;padding:10px 12px;background:var(--ink);border:1px solid var(--line);border-radius:3px;font:15px/1.5 var(--serif);color:var(--sand);overflow-wrap:anywhere}
 .lv1>.row .lab,.lv2>.row .lab{font-family:var(--serif)}
@@ -146,6 +161,7 @@ body.tree-mode #menu{display:none!important}
 <header class="top">
  <button class="btn" id="menu">Tree</button>
  <div class="brand"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#121110"/><rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="#d8ccb2" stroke-opacity=".35" stroke-width="2"/><path d="M22 32H30M30 18V46M30 18H38M30 32H38M30 46H38" fill="none" stroke="#a89d86" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="9" y="26" width="13" height="12" rx="2.5" fill="#d8ccb2"/><rect x="38" y="13" width="17" height="10" rx="2.5" fill="#a89d86"/><rect x="38" y="27" width="17" height="10" rx="2.5" fill="#efe6d2"/><rect x="38" y="41" width="17" height="10" rx="2.5" fill="#a89d86"/></svg>Inventory</div>
+ <button class="info" id="info" aria-label="Last saved and recent changes" title="Last saved and recent changes">i</button>
  <button class="btn" id="mode">Tree mode</button>
  <button class="btn" id="hLoad">Load hierarchy</button>
  <button class="btn" id="hSave">Save hierarchy</button>
@@ -177,6 +193,7 @@ body.tree-mode #menu{display:none!important}
   <div class="gscroll" id="gs"></div>
  </section>
 </main>
+<div id="infop" hidden role="dialog" aria-label="Save activity"></div>
 <script>
 const LEVELS=['Scheme','Category','Enquiry','Header','Subject','Topic (Noun)','Action (Verb)','Enquiry / Request'];
 const SUBJECTS=['SC','PR','SC/PR','Foreigner','Foreigner (Malaysian)','Foreigner (Non-Malaysian)','Anonymous'];
@@ -199,7 +216,7 @@ const kOf=p=>JSON.stringify(p);
 const $=s=>document.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 
-function persist(){} // nothing is ever stored in the browser
+function persist(msg){if(msg)logChange(msg)} // nothing is ever stored in the browser
 function restore(){try{localStorage.removeItem(KEY)}catch(e){}data={headers:[],notes:{},when:{},stubs:[]}}
 
 function buildTrie(){
@@ -262,7 +279,7 @@ function renderView(){
   for(const key of Object.keys(data.notes)){const p=JSON.parse(key);if(p.length>=k&&sel.every((x,i)=>x===p[i]))delete data.notes[key]}
   for(const key of Object.keys(data.when)){const p=JSON.parse(key);if(p.length>=k&&sel.every((x,i)=>x===p[i]))delete data.when[key]}
   data.stubs=data.stubs.filter(sp=>!pre(sp,sel));
-  sel=null;persist();renderTree();renderView()});
+  const dn=sel[sel.length-1];sel=null;persist('Deleted "'+dn+'" and everything inside');renderTree();renderView()});
  act.append(cp,rn,del);ch.append(act);v.append(ch);
 
  const key=kOf(sel),list=data.notes[key]||[];
@@ -272,7 +289,7 @@ function renderView(){
   if(edit){const wt=el('textarea');wt.value=data.when[key]||'';wt.placeholder='Describe when this category should be used…';
    wt.setAttribute('aria-label','When to use');wbody.append(wt);
    wb.textContent='Save';wb.className='btn pri sm';
-   wb.onclick=()=>{const t=wt.value.trim();if(t){data.when[key]=t;drawWhen(false)}else{delete data.when[key];wt.value=''}}}
+   wb.onclick=()=>{const t=wt.value.trim();if(t){data.when[key]=t;persist('Saved description for "'+sel[sel.length-1]+'"');drawWhen(false)}else{if(data.when[key])persist('Cleared description for "'+sel[sel.length-1]+'"');delete data.when[key];wt.value=''}}}
   else{wbody.append(el('div','when-txt',data.when[key]));wb.textContent='Edit';wb.className='btn sm';wb.onclick=()=>drawWhen(true)}};
  drawWhen(!data.when[key]);v.append(wh);
  const n=el('div','notes'),nh=el('div','notes-h');
@@ -285,7 +302,7 @@ function renderView(){
  list.forEach((s,i)=>{
   const row=el('div','note'),b=el('div','body');b.innerHTML=clean(s.html);
   const x=el('button','btn sm x','Remove');
-  x.onclick=()=>{list.splice(i,1);if(!list.length)delete data.notes[key];persist();renderView()};
+  x.onclick=()=>{list.splice(i,1);if(!list.length)delete data.notes[key];persist('Removed a sentence from "'+sel[sel.length-1]+'"');renderView()};
   row.append(b,x);L.append(row)});
  n.append(L);
 
@@ -315,7 +332,7 @@ function renderView(){
   document.execCommand('insertHTML',false,out)});
  const foot=el('div','foot'),add=el('button','btn pri','Add sentence');
  add.onclick=()=>{const h=clean(ed.innerHTML);if(!ed.textContent.trim())return;
-  (data.notes[key]=data.notes[key]||[]).push({html:h});persist();renderView();
+  (data.notes[key]=data.notes[key]||[]).push({html:h});persist('Added a sentence to "'+sel[sel.length-1]+'"');renderView();
   const l=$('#list');l.scrollTop=l.scrollHeight};
  foot.append(add);co.append(tl,ed,foot);n.append(co);v.append(n)}
 
@@ -355,13 +372,13 @@ function modal(title,body,acts){
  document.body.append(s);return close}
 function toast(t){const e=el('div','toast',t);document.body.append(e);setTimeout(()=>e.remove(),1800)}
 
-function saveBox(title,text){
+function saveBox(title,text,extra){
  const b=el('div'),ta=el('textarea');ta.value=text;ta.readOnly=true;
  b.append(el('p',null,'Copy this text and keep it somewhere safe. Paste it into Load to restore.'),ta);
  let close;const cp=el('button','btn pri','Copy');
  cp.onclick=async()=>{try{await navigator.clipboard.writeText(text);toast('Copied')}catch(e){ta.select();document.execCommand('copy');toast('Copied')}};
  const cl=el('button','btn','Close');cl.onclick=()=>close();
- close=modal(title,b,[cl,cp]);ta.focus();ta.select()}
+ close=modal(title,b,[cl,...(extra||[]),cp]);ta.focus();ta.select()}
 
 function loadBox(title,hint,apply){
  const b=el('div'),ta=el('textarea'),msg=el('div','msg');
@@ -371,7 +388,7 @@ function loadBox(title,hint,apply){
  ok.onclick=()=>{try{const r=apply(JSON.parse(ta.value));close();toast(r||'Loaded')}catch(e){msg.textContent='That text is not valid. '+e.message}};
  close=modal(title,b,[cl,ok]);ta.focus()}
 
-function saveHier(){saveBox('Save hierarchy',JSON.stringify({headers:data.headers,stubs:data.stubs},null,2))}
+function saveHier(){markSaved('Saved hierarchy',false);saveBox('Save hierarchy',JSON.stringify({headers:data.headers,stubs:data.stubs},null,2))}
 $('#hSave').onclick=saveHier;
 function parseHeaders(d){
  const arr=Array.isArray(d)?d:d.headers;
@@ -380,14 +397,14 @@ function parseHeaders(d){
  arr.forEach((h,i)=>need.forEach(f=>{if(h[f]==null)throw new Error(`Header ${i+1} is missing "${f}".`)}));
  return arr.map(h=>({...h,count:Number(h.count)||1,type:h.type==='req'?'req':'enq'}))}
 $('#hLoad').onclick=()=>loadBox('Load hierarchy','Pasting replaces the current hierarchy. Sentences stay as they are.',d=>{
- data.headers=parseHeaders(d);data.stubs=Array.isArray(d.stubs)?d.stubs.filter(Array.isArray).map(a=>a.map(String)):[];sel=null;open.clear();persist();renderTree();renderView()});
+ data.headers=parseHeaders(d);data.stubs=Array.isArray(d.stubs)?d.stubs.filter(Array.isArray).map(a=>a.map(String)):[];sel=null;open.clear();persist('Loaded a hierarchy');renderTree();renderView()});
 // compact format: one nested tree, with each title's description (w) and sentences (s) stored on its own node
 function packAll(){
  const pack=n=>[...n.kids.values()].map(c=>{const o={n:c.label},k=kOf(c.path);
   if(data.when[k])o.w=data.when[k];
   if(data.notes[k]&&data.notes[k].length)o.s=data.notes[k].map(x=>x.html);
   if(c.kids.size)o.c=pack(c);return o});
- return {v:2,t:pack(buildTrie())}}
+ return {v:2,t:pack(buildTrie()),m:{s:meta.saved,l:meta.log.slice(0,15)}}}
 function unpackAll(d){
  const hs=[],nn={},wn={},st=[];
  const walk=(list,p)=>list.forEach(o=>{
@@ -399,7 +416,9 @@ function unpackAll(d){
   else if(q.length===8){const m=/^(\d+)\w* (enquiry|request)$/.exec(q[7]);
    hs.push({scheme:q[0],category:q[1],enquiry:q[2],header:q[3],subject:q[4],topic:q[5],action:q[6],count:m?+m[1]:1,type:m&&m[2]==='request'?'req':'enq'})}});
  walk(d.t,[]);return {headers:hs,notes:nn,when:wn,stubs:st}}
-$('#aSave').onclick=()=>saveBox('Save everything',JSON.stringify(packAll()));
+$('#aSave').onclick=()=>{markSaved('Saved everything',true);
+ const dj=el('button','btn','Download date.json');dj.onclick=downloadDate;
+ saveBox('Save everything',JSON.stringify(packAll()),[dj])};
 $('#aLoad').onclick=()=>loadBox('Load everything','Pasting replaces the whole hierarchy, descriptions and sentences.',d=>{
  let nd;
  if(d&&d.v===2&&Array.isArray(d.t))nd=unpackAll(d);
@@ -409,8 +428,13 @@ $('#aLoad').onclick=()=>loadBox('Load everything','Pasting replaces the whole hi
    const k=kOf(n.chain.map(String));nn[k]=(nn[k]||[]).concat(n.sentences.map(h=>({html:clean(String(h))})))});
   (Array.isArray(d.when)?d.when:[]).forEach(w=>{if(Array.isArray(w.chain)&&typeof w.text==='string'&&w.text.trim())wn[kOf(w.chain.map(String))]=w.text});
   nd={headers:hs,notes:nn,when:wn,stubs:[]}}
- data=nd;sel=null;open.clear();persist();renderTree();renderView()});
-function saveNotes(){saveBox('Save sentence list',JSON.stringify({chain:sel,sentences:(data.notes[kOf(sel)]||[]).map(s=>s.html)},null,2))}
+ data=nd;sel=null;open.clear();persist('Loaded everything from a saved code');
+ if(d&&d.m&&typeof d.m==='object'){
+  if(d.m.s)meta.saved=+d.m.s;meta.savedWhat='Loaded from a saved code';
+  const old=Array.isArray(d.m.l)?d.m.l.filter(x=>x&&x.t).map(x=>({t:String(x.t),a:+x.a||Date.now()})):[];
+  meta.log=meta.log.slice(0,1).concat(old).slice(0,30)}
+ meta.dirty=false;renderInfo();renderTree();renderView()});
+function saveNotes(){markSaved('Saved a sentence list',false);saveBox('Save sentence list',JSON.stringify({chain:sel,sentences:(data.notes[kOf(sel)]||[]).map(s=>s.html)},null,2))}
 function loadNotes(){loadBox('Load sentence list','Each list remembers its chain. Sentences go back under that chain, which is recreated if it no longer exists.',d=>{
  const a=Array.isArray(d)?d:d.sentences;
  if(!Array.isArray(a))throw new Error('Expected a "sentences" list.');
@@ -423,7 +447,7 @@ function loadNotes(){loadBox('Load sentence list','Each list remembers its chain
    else msg='Chain not found, so sentences were added to the selected chain'}}
  const k=kOf(target);data.notes[k]=(data.notes[k]||[]).concat(a.map(h=>({html:clean(String(h))})));
  for(let i=1;i<target.length;i++)open.add(kOf(target.slice(0,i)));
- sel=target;persist();renderTree();renderView();return msg})}
+ sel=target;persist('Loaded a sentence list');renderTree();renderView();return msg})}
 
 /* chain text, duplicate, rename */
 function body(p){let s='';if(p[4])s=p[4];if(p[3])s+=(s?' - ':'')+p[3];if(p[5])s+=' : '+p[5];if(p[6])s+=' | '+p[6];if(p[7])s+=' ('+p[7]+')';return s}
@@ -464,7 +488,7 @@ function doDup(path,empty){
  for(const m of [data.notes,data.when])for(const key of Object.keys(m)){const p=JSON.parse(key);
   if(mt(p)){const q=p.slice();q[L]=np[L];m[kOf(q)]=Array.isArray(m[key])?m[key].map(x=>({...x})):m[key]}}
  for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
- sel=np;persist();renderTree();renderView();toast('Duplicated')}
+ sel=np;persist('Duplicated "'+path[path.length-1]+'"'+(empty?' (folder only)':''));renderTree();renderView();toast('Duplicated')}
 function childLabels(p){let n=buildTrie();for(const x of p){n=n.kids.get(x);if(!n)return new Set()}return new Set(n.kids.keys())}
 function addEmptySub(path){
  const base=['Scheme','Category','Enquiry','Header','Subject','Topic','Action'];
@@ -478,7 +502,7 @@ function addEmptySub(path){
  p=p.concat(cLabel({count:n,type:'enq'}));
  data.headers.push({scheme:p[0],category:p[1],enquiry:p[2],header:p[3],subject:p[4],topic:p[5],action:p[6],count:n,type:'enq'});
  for(let i=1;i<p.length;i++)open.add(kOf(p.slice(0,i)));
- sel=path;persist();renderTree();renderView();toast('Subfolders added')}
+ sel=path;persist('Added empty subfolders in "'+path[path.length-1]+'"');renderTree();renderView();toast('Subfolders added')}
 function bulkSubject(){
  const used=[...new Set([...SUBJECTS,...data.headers.map(h=>h.subject)])];
  const w=el('div'),g=el('div','grid'),info=el('p');info.style.marginTop='12px';
@@ -499,7 +523,7 @@ function bulkSubject(){
   data.notes=remap(data.notes);data.when=remap(data.when);
   const no=new Set();open.forEach(k=>no.add(kOf(sw(JSON.parse(k)))));open=no;
   if(sel)sel=sw(sel);
-  persist();renderTree();renderView();close();toast('Subjects changed')};
+  persist('Changed subject '+a+' to '+b);renderTree();renderView();close();toast('Subjects changed')};
  close=modal('Change subjects',w,[cl,ok])}
 $('#bulk').onclick=bulkSubject;
 function parentsAt(len){const out=[];(function w(n){n.kids.forEach(c=>{if(c.path.length===len)out.push(c.path);else if(c.path.length<len)w(c)})})(buildTrie());return out}
@@ -534,7 +558,7 @@ function doMove(path,dest){
  const no=new Set();open.forEach(k=>{const p=JSON.parse(k);no.add(kOf(p.length>=n&&pre(p,path)?mp(p):p))});open=no;
  const np=mp(path);
  for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
- sel=np;persist();renderTree();renderView();toast('Moved')}
+ sel=np;persist('Moved "'+path[n-1]+'" into "'+dest.join(' > ')+'"');renderTree();renderView();toast('Moved')}
 function renameNode(path){
  const L=path.length-1,w=el('div'),msg=el('div','msg');
  const sty='background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:8px 10px;width:100%';
@@ -565,7 +589,7 @@ function renameNode(path){
   data.when=wn;
   const no=new Set();open.forEach(k=>{const p=JSON.parse(k);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;no.add(kOf(p))});open=no;
   for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
-  sel=np;persist();renderTree();renderView();close()};
+  sel=np;persist('Renamed "'+path[L]+'" to "'+nv+'"');renderTree();renderView();close()};
  close=modal(L===7?'Edit count':L===4?'Change subject':'Rename "'+path[L]+'"',w,[...(L<7?[sub]:[]),...(L>0?[mv]:[]),cl,ok]);
  (inp||num).focus();if(inp&&inp.select&&inp.type==='text')inp.select()}
 
@@ -603,12 +627,46 @@ $('#add').onclick=()=>{
   h.count=Math.max(1,parseInt(num.value)||1);h.type=ty.value;
   data.headers.push(h);const p=pathOf(h);
   for(let i=1;i<p.length;i++)open.add(kOf(p.slice(0,i)));
-  sel=p;persist();renderTree();renderView();close()};
+  sel=p;persist('Added header "'+h.header+'"');renderTree();renderView();close()};
  const wrap=el('div');wrap.append(g,msg);
  close=modal('Add header',wrap,[cl,ok]);f.scheme.focus()};
 
 $('#expand').onclick=()=>{(function w(n,p){n.kids.forEach(c=>{if(c.kids.size){open.add(kOf(c.path));w(c)}})})(buildTrie());renderTree()};
 $('#collapse').onclick=()=>{open.clear();renderTree()};
+let meta={saved:null,savedWhat:'',log:[],dirty:false,repo:null};
+const fmtDate=t=>new Date(t).toLocaleString(undefined,{weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'});
+function ago(t){const s=Math.max(0,Math.round((Date.now()-t)/1000));if(s<45)return 'just now';const m=Math.round(s/60);if(m<60)return m+' min ago';const h=Math.round(m/60);if(h<24)return h+' hr ago';const d=Math.round(h/24);return d+' day'+(d===1?'':'s')+' ago'}
+function logChange(text){meta.log.unshift({t:text,a:Date.now()});meta.log.length=Math.min(meta.log.length,30);meta.dirty=true;renderInfo()}
+function markSaved(what,clear){meta.saved=Date.now();meta.savedWhat=what;if(clear)meta.dirty=false;renderInfo()}
+const iso=t=>new Date(t).toISOString();
+function dateJson(){const l=meta.log[0];
+ return JSON.stringify({app:'Inventory',lastSaved:meta.saved?iso(meta.saved):null,lastSavedWhat:meta.savedWhat||null,unsavedChanges:meta.dirty,
+  lastChange:l?{text:l.t,at:iso(l.a)}:null,recentChanges:meta.log.slice(0,15).map(x=>({text:x.t,at:iso(x.a)}))},null,2)}
+function downloadDate(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([dateJson()],{type:'application/json'}));a.download='date.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function renderInfo(){
+ const b=$('#info');b.classList.toggle('dirty',meta.dirty);
+ b.title=meta.dirty?'Unsaved changes. Click for details':'Last saved and recent changes';
+ const p=$('#infop');if(p.hidden)return;p.innerHTML='';
+ const top=el('div'),ttl=el('div',null,'Activity'),x=el('button','btn sm','Close');
+ top.style.cssText='display:flex;align-items:center';ttl.style.cssText='font:600 20px var(--serif);color:var(--sand);flex:1';
+ x.onclick=()=>{p.hidden=true};top.append(ttl,x);p.append(top);
+ p.append(el('h4',null,'Last saved'));
+ const r=meta.repo&&meta.repo.lastSaved?Date.parse(meta.repo.lastSaved):NaN,st=meta.saved||r;
+ if(st){p.append(el('div','big',fmtDate(st)),el('small',null,ago(st)+' · '+(meta.saved?(meta.savedWhat||'this session'):'from date.json')))}
+ else p.append(el('div','big','Not saved yet'));
+ p.append(el('div','pstat'+(meta.dirty?' warn':''),meta.dirty?'● Unsaved changes since the last save':(meta.log.length?'All changes saved':'No changes yet')));
+ p.append(el('h4',null,'Last change'));
+ const lc=meta.log[0],rc=meta.repo&&meta.repo.lastChange;
+ if(lc)p.append(el('div','big',lc.t),el('small',null,ago(lc.a)+' · '+fmtDate(lc.a)));
+ else if(rc&&rc.text){const t=Date.parse(rc.at);p.append(el('div','big',rc.text),el('small',null,(isNaN(t)?'':ago(t)+' · ')+'from date.json'))}
+ else p.append(el('div','big','Nothing yet'));
+ if(meta.log.length>1){p.append(el('h4',null,'Recent changes'));
+  const ul=el('ul','hist');meta.log.slice(1).forEach(e=>{const li=el('li',null,e.t);li.append(el('small',null,ago(e.a)));ul.append(li)});p.append(ul)}
+ const bt=el('div','btns'),dl=el('button','btn sm','Download date.json'),cp=el('button','btn sm','Copy date.json');
+ dl.onclick=downloadDate;cp.onclick=async()=>{await copyText(dateJson());toast('Copied')};bt.append(dl,cp);p.append(bt)}
+$('#info').onclick=()=>{const p=$('#infop');p.hidden=!p.hidden;renderInfo()};
+setInterval(renderInfo,30000);
+try{fetch('date.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){meta.repo=j;renderInfo()}}).catch(()=>{})}catch(e){}
 const GP=20,HEAD=38;let shrink=0,lastRows=0;
 const lerp=(a,b,u)=>a+(b-a)*u;
 // first 60% of the slider only tightens spacing and box size (text stays the same); the rest scales everything, text included
