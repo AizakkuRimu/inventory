@@ -422,6 +422,20 @@ function doDup(path,empty){
   if(mt(p)){const q=p.slice();q[L]=np[L];m[kOf(q)]=Array.isArray(m[key])?m[key].map(x=>({...x})):m[key]}}
  for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
  sel=np;persist();renderTree();renderView();toast('Duplicated')}
+function childLabels(p){let n=buildTrie();for(const x of p){n=n.kids.get(x);if(!n)return new Set()}return new Set(n.kids.keys())}
+function addEmptySub(path){
+ const base=['Scheme','Category','Enquiry','Header','Subject','Topic','Action'];
+ let p=path.slice();
+ for(let L=p.length;L<7;L++){
+  const used=childLabels(p);let name;
+  if(L===4){name=SUBJECTS.find(x=>!used.has(x));if(!name){toast('Every subject is already used here');return}}
+  else{name='New '+base[L];let i=2;while(used.has(name))name=`New ${base[L]} ${i++}`}
+  p=p.concat(name)}
+ const used=childLabels(p);let n=1;while(used.has(cLabel({count:n,type:'enq'})))n++;
+ p=p.concat(cLabel({count:n,type:'enq'}));
+ data.headers.push({scheme:p[0],category:p[1],enquiry:p[2],header:p[3],subject:p[4],topic:p[5],action:p[6],count:n,type:'enq'});
+ for(let i=1;i<p.length;i++)open.add(kOf(p.slice(0,i)));
+ sel=path;persist();renderTree();renderView();toast('Subfolders added')}
 function renameNode(path){
  const L=path.length-1,w=el('div'),msg=el('div','msg');
  const sty='background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:8px 10px;width:100%';
@@ -434,6 +448,8 @@ function renameNode(path){
  else{inp=el('input');inp.type='text';inp.value=path[L];inp.style.cssText=sty;w.append(inp)}
  w.append(msg);
  let close;const ok=el('button','btn pri','Save'),cl=el('button','btn','Cancel');cl.onclick=()=>close();
+ const sub=el('button','btn','Add empty subfolders');sub.title='Adds empty folders below this one, down to the 1st enquiry';
+ sub.onclick=()=>{close();addEmptySub(path)};
  w.onkeydown=e=>{if(e.key==='Enter')ok.click()};
  ok.onclick=()=>{
   const np=path.slice();let nv;
@@ -450,7 +466,7 @@ function renameNode(path){
   const no=new Set();open.forEach(k=>{const p=JSON.parse(k);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;no.add(kOf(p))});open=no;
   for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
   sel=np;persist();renderTree();renderView();close()};
- close=modal(L===7?'Edit count':L===4?'Change subject':'Rename "'+path[L]+'"',w,[cl,ok]);
+ close=modal(L===7?'Edit count':L===4?'Change subject':'Rename "'+path[L]+'"',w,[...(L<7?[sub]:[]),cl,ok]);
  (inp||num).focus();if(inp&&inp.select&&inp.type==='text')inp.select()}
 
 /* add header */
