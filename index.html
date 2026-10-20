@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inventory</title>
+<meta name="theme-color" content="#121110">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%23121110%22/%3E%3Crect x=%222%22 y=%222%22 width=%2260%22 height=%2260%22 rx=%2212%22 fill=%22none%22 stroke=%22%23d8ccb2%22 stroke-opacity=%22.35%22 stroke-width=%222%22/%3E%3Cpath d=%22M22 32H30M30 18V46M30 18H38M30 32H38M30 46H38%22 fill=%22none%22 stroke=%22%23a89d86%22 stroke-width=%223%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3Crect x=%229%22 y=%2226%22 width=%2213%22 height=%2212%22 rx=%222.5%22 fill=%22%23d8ccb2%22/%3E%3Crect x=%2238%22 y=%2213%22 width=%2217%22 height=%2210%22 rx=%222.5%22 fill=%22%23a89d86%22/%3E%3Crect x=%2238%22 y=%2227%22 width=%2217%22 height=%2210%22 rx=%222.5%22 fill=%22%23efe6d2%22/%3E%3Crect x=%2238%22 y=%2241%22 width=%2217%22 height=%2210%22 rx=%222.5%22 fill=%22%23a89d86%22/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -16,7 +19,8 @@ button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--beige);outline-offset:2px}
 header.top{flex-wrap:wrap;display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--ink)}
-.brand{font:600 24px var(--serif);color:var(--sand);letter-spacing:.01em;margin-right:auto}
+.logo{width:30px;height:30px;flex:none}
+.brand{display:flex;align-items:center;gap:10px;font:600 24px var(--serif);color:var(--sand);letter-spacing:.01em;margin-right:auto}
 .btn{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:6px 12px;color:var(--beige)}
 .btn:hover{border-color:var(--beige2)}
 .btn.pri{background:var(--beige);color:var(--ink);border-color:var(--beige);font-weight:600}
@@ -141,7 +145,7 @@ body.tree-mode #menu{display:none!important}
 <body>
 <header class="top">
  <button class="btn" id="menu">Tree</button>
- <div class="brand">Inventory</div>
+ <div class="brand"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#121110"/><rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="#d8ccb2" stroke-opacity=".35" stroke-width="2"/><path d="M22 32H30M30 18V46M30 18H38M30 32H38M30 46H38" fill="none" stroke="#a89d86" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="9" y="26" width="13" height="12" rx="2.5" fill="#d8ccb2"/><rect x="38" y="13" width="17" height="10" rx="2.5" fill="#a89d86"/><rect x="38" y="27" width="17" height="10" rx="2.5" fill="#efe6d2"/><rect x="38" y="41" width="17" height="10" rx="2.5" fill="#a89d86"/></svg>Inventory</div>
  <button class="btn" id="mode">Tree mode</button>
  <button class="btn" id="hLoad">Load hierarchy</button>
  <button class="btn" id="hSave">Save hierarchy</button>
