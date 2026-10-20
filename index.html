@@ -156,6 +156,7 @@ body.tree-mode #menu{display:none!important}
  <aside id="side">
   <div class="side-h">
    <button class="btn pri sm" id="add">Add header</button>
+   <button class="btn sm" id="bulk" title="Change every header from one subject to another">Change subjects</button>
    <button class="btn sm" id="expand">Expand all</button>
    <button class="btn sm" id="collapse">Collapse all</button>
    <button class="btn sm" id="sort" title="Change sort order">A–Z</button>
@@ -178,7 +179,7 @@ body.tree-mode #menu{display:none!important}
 </main>
 <script>
 const LEVELS=['Scheme','Category','Enquiry','Header','Subject','Topic (Noun)','Action (Verb)','Enquiry / Request'];
-const SUBJECTS=['SC','PR','Foreigner','Foreigner (Malaysian)','Foreigner (Non-Malaysian)','Anonymous'];
+const SUBJECTS=['SC','PR','SC/PR','Foreigner','Foreigner (Malaysian)','Foreigner (Non-Malaysian)','Anonymous'];
 const KEY='inventory.v1';
 let data={headers:[],notes:{},when:{},stubs:[]};
 let sel=null, open=new Set(), sortDir=1, mode='list';
@@ -478,6 +479,29 @@ function addEmptySub(path){
  data.headers.push({scheme:p[0],category:p[1],enquiry:p[2],header:p[3],subject:p[4],topic:p[5],action:p[6],count:n,type:'enq'});
  for(let i=1;i<p.length;i++)open.add(kOf(p.slice(0,i)));
  sel=path;persist();renderTree();renderView();toast('Subfolders added')}
+function bulkSubject(){
+ const used=[...new Set([...SUBJECTS,...data.headers.map(h=>h.subject)])];
+ const w=el('div'),g=el('div','grid'),info=el('p');info.style.marginTop='12px';
+ const mk=(label,opts,val)=>{const l=el('label',null,label),sl=el('select');opts.forEach(o=>sl.append(new Option(o,o)));sl.value=val;l.append(sl);g.append(l);return sl};
+ const fr=mk('Change every',used,'SC'),to=mk('into',SUBJECTS,'SC/PR');
+ let close;const ok=el('button','btn pri','Change all'),cl=el('button','btn','Cancel');cl.onclick=()=>close();
+ const upd=()=>{const n=data.headers.filter(h=>h.subject===fr.value).length;
+  info.textContent=n?`This changes ${n} header${n===1?'':'s'}. Sentences and descriptions move with them, and matching folders merge.`:`No headers use "${fr.value}".`;
+  ok.disabled=!n||fr.value===to.value};
+ fr.onchange=to.onchange=upd;upd();w.append(g,info);
+ ok.onclick=()=>{const a=fr.value,b=to.value;
+  const sw=p=>{if(p.length>4&&p[4]===a){const q=p.slice();q[4]=b;return q}return p};
+  data.headers.forEach(h=>{if(h.subject===a)h.subject=b});
+  const seen=new Set();data.headers=data.headers.filter(h=>{const k=kOf(pathOf(h));if(seen.has(k))return false;seen.add(k);return true});
+  data.stubs=data.stubs.map(sw);
+  const remap=m=>{const o={};for(const key of Object.keys(m)){const k=kOf(sw(JSON.parse(key)));
+   if(Array.isArray(m[key]))o[k]=(o[k]||[]).concat(m[key]);else o[k]=o[k]?o[k]+'\n\n'+m[key]:m[key]}return o};
+  data.notes=remap(data.notes);data.when=remap(data.when);
+  const no=new Set();open.forEach(k=>no.add(kOf(sw(JSON.parse(k)))));open=no;
+  if(sel)sel=sw(sel);
+  persist();renderTree();renderView();close();toast('Subjects changed')};
+ close=modal('Change subjects',w,[cl,ok])}
+$('#bulk').onclick=bulkSubject;
 function parentsAt(len){const out=[];(function w(n){n.kids.forEach(c=>{if(c.path.length===len)out.push(c.path);else if(c.path.length<len)w(c)})})(buildTrie());return out}
 function moveNode(path){
  const n=path.length,cur=kOf(path.slice(0,n-1));
