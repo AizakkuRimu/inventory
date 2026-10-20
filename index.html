@@ -48,6 +48,10 @@ aside{width:340px;max-width:44%;background:var(--panel);border-right:1px solid v
 .cb.up{top:auto;bottom:100%;margin:0 0 2px}
 .cb .opt{display:block;width:100%;text-align:left;background:none;border:0;padding:6px 10px;color:var(--beige)}
 .cb .opt:hover{background:var(--panel2)}
+.pick{max-height:240px;overflow-y:auto;border:1px solid var(--line);border-radius:3px;background:var(--ink);margin-top:10px}
+.pick .opt{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:8px 10px;color:var(--beige);overflow-wrap:anywhere}
+.pick .opt:hover{background:var(--panel2)}
+.pick .opt.on{background:var(--beige);color:var(--ink)}
 .cb .none{padding:8px 10px;color:var(--beige2);font-size:13px}
 .ctext{margin-top:14px;padding:10px 12px;background:var(--ink);border:1px solid var(--line);border-radius:3px;font:15px/1.5 var(--serif);color:var(--sand);overflow-wrap:anywhere}
 .lv1>.row .lab,.lv2>.row .lab{font-family:var(--serif)}
@@ -436,6 +440,39 @@ function addEmptySub(path){
  data.headers.push({scheme:p[0],category:p[1],enquiry:p[2],header:p[3],subject:p[4],topic:p[5],action:p[6],count:n,type:'enq'});
  for(let i=1;i<p.length;i++)open.add(kOf(p.slice(0,i)));
  sel=path;persist();renderTree();renderView();toast('Subfolders added')}
+function parentsAt(len){const out=[];(function w(n){n.kids.forEach(c=>{if(c.path.length===len)out.push(c.path);else if(c.path.length<len)w(c)})})(buildTrie());return out}
+function moveNode(path){
+ const n=path.length,cur=kOf(path.slice(0,n-1));
+ const cands=parentsAt(n-1).filter(p=>kOf(p)!==cur).sort((a,b)=>a.join(' > ').localeCompare(b.join(' > ')));
+ const w=el('div'),q=el('input'),list=el('div','pick');let chosen=null,close;
+ w.append(el('p',null,`Choose which ${LEVELS[n-2]} to move "${path[n-1]}" into. Everything inside it moves too.`));
+ q.type='search';q.placeholder='Search folders';q.autocomplete='off';
+ q.style.cssText='width:100%;background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:8px 10px;color:var(--beige)';
+ const ok=el('button','btn pri','Move here'),cl=el('button','btn','Cancel');ok.disabled=true;cl.onclick=()=>close();
+ const draw=()=>{const st=list.scrollTop;list.innerHTML='';const t=q.value.trim().toLowerCase();
+  const m=cands.filter(p=>p.join(' > ').toLowerCase().includes(t));
+  if(!m.length)list.append(el('div','empty',cands.length?'No folders match.':'There is nowhere else to move this to.'));
+  m.forEach(p=>{const b=el('button','opt'+(chosen&&kOf(chosen)===kOf(p)?' on':''),p.join(' > '));b.onclick=()=>{chosen=p;ok.disabled=false;draw()};list.append(b)});
+  list.scrollTop=st};
+ q.oninput=draw;draw();w.append(q,list);
+ ok.onclick=()=>{close();doMove(path,chosen)};
+ close=modal('Move "'+path[n-1]+'"',w,[cl,ok]);q.focus()}
+function doMove(path,dest){
+ const n=path.length;let nl=null,nc=0;
+ if(n===8){const h0=data.headers.find(h=>under(h,path,8)),used=childLabels(dest);
+  nc=h0.count;nl=cLabel({count:nc,type:h0.type});
+  while(used.has(nl)){nc++;nl=cLabel({count:nc,type:h0.type})}}
+ const mp=p=>{const q=dest.concat(p.slice(n-1));if(n===8)q[7]=nl;return q};
+ data.headers.forEach(h=>{if(under(h,path,n)){const q=mp(pathOf(h));FIELDS.forEach((f,i)=>h[f]=q[i]);if(n===8)h.count=nc}});
+ data.stubs=data.stubs.map(sp=>pre(sp,path)?mp(sp):sp);
+ const remap=m=>{const o={};for(const key of Object.keys(m)){const p=JSON.parse(key);
+  const k=(p.length>=n&&pre(p,path))?kOf(mp(p)):key;
+  if(Array.isArray(m[key]))o[k]=(o[k]||[]).concat(m[key]);else o[k]=o[k]?o[k]+'\n\n'+m[key]:m[key]}return o};
+ data.notes=remap(data.notes);data.when=remap(data.when);
+ const no=new Set();open.forEach(k=>{const p=JSON.parse(k);no.add(kOf(p.length>=n&&pre(p,path)?mp(p):p))});open=no;
+ const np=mp(path);
+ for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
+ sel=np;persist();renderTree();renderView();toast('Moved')}
 function renameNode(path){
  const L=path.length-1,w=el('div'),msg=el('div','msg');
  const sty='background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:8px 10px;width:100%';
@@ -450,6 +487,7 @@ function renameNode(path){
  let close;const ok=el('button','btn pri','Save'),cl=el('button','btn','Cancel');cl.onclick=()=>close();
  const sub=el('button','btn','Add empty subfolders');sub.title='Adds empty folders below this one, down to the 1st enquiry';
  sub.onclick=()=>{close();addEmptySub(path)};
+ const mv=el('button','btn','Move');mv.title='Move this folder somewhere else';mv.onclick=()=>{close();moveNode(path)};
  w.onkeydown=e=>{if(e.key==='Enter')ok.click()};
  ok.onclick=()=>{
   const np=path.slice();let nv;
@@ -466,7 +504,7 @@ function renameNode(path){
   const no=new Set();open.forEach(k=>{const p=JSON.parse(k);if(p.length>L&&path.every((x,i)=>x===p[i]))p[L]=nv;no.add(kOf(p))});open=no;
   for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
   sel=np;persist();renderTree();renderView();close()};
- close=modal(L===7?'Edit count':L===4?'Change subject':'Rename "'+path[L]+'"',w,[...(L<7?[sub]:[]),cl,ok]);
+ close=modal(L===7?'Edit count':L===4?'Change subject':'Rename "'+path[L]+'"',w,[...(L<7?[sub]:[]),...(L>0?[mv]:[]),cl,ok]);
  (inp||num).focus();if(inp&&inp.select&&inp.type==='text')inp.select()}
 
 /* add header */
