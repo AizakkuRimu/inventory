@@ -110,7 +110,9 @@ section.view>*{flex:none}
 body.tree-mode aside,body.tree-mode section.view{display:none}
 body.tree-mode #graph{display:flex}
 body.tree-mode #menu{display:none!important}
-.gbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.gz{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--beige2)}
+.gz input{width:120px;accent-color:var(--beige)}
+.gbar{flex-wrap:wrap;display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
 .gbar input{width:240px;max-width:40%;background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:6px 10px;color:var(--beige)}
 .gsel{flex:1;min-width:0;font:14px var(--serif);color:var(--sand);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gscroll{flex:1;overflow:auto;min-height:0;background:var(--ink)}
@@ -120,7 +122,7 @@ body.tree-mode #menu{display:none!important}
 .gcol{position:absolute;top:38px;bottom:0;border-left:1px solid var(--line);background:rgba(255,255,255,.015)}
 .glines{position:absolute;left:0;top:0;pointer-events:none}
 .gn{position:absolute;box-sizing:border-box;padding:3px 10px;display:flex;align-items:center;justify-content:center;text-align:center;font:13px/1.25 var(--sans);background:var(--panel2);border:1px solid var(--beige2);border-radius:3px;color:var(--beige);cursor:pointer;overflow:hidden}
-.gn span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.gn span{display:-webkit-box;-webkit-line-clamp:var(--lines,2);-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .gn.l3{font:700 13px/1.25 var(--serif);color:var(--sand);background:var(--panel);border-color:var(--beige)}
 .gn.l7{background:var(--beige2);color:var(--ink);border-color:var(--beige2);font-weight:600}
 .gn.hit{box-shadow:0 2px 0 var(--sand)}
@@ -162,6 +164,8 @@ body.tree-mode #menu{display:none!important}
   <div class="gbar">
    <input id="gq" type="search" placeholder="Search the tree" aria-label="Search the tree" autocomplete="off">
    <button class="btn sm" id="gsort" title="Change sort order">A–Z</button>
+   <label class="gz" title="Squeeze the tree to see more of it">Shrink <input type="range" id="gz" min="0" max="100" value="0" aria-label="Shrink the tree"></label>
+   <button class="btn sm" id="gfit" title="Shrink just enough to fit the whole tree on screen">Fit all</button>
    <div class="gsel" id="gsel"></div>
    <button class="btn pri sm" id="gopen" hidden>Open in editor</button>
   </div>
@@ -577,9 +581,14 @@ $('#add').onclick=()=>{
 
 $('#expand').onclick=()=>{(function w(n,p){n.kids.forEach(c=>{if(c.kids.size){open.add(kOf(c.path));w(c)}})})(buildTrie());renderTree()};
 $('#collapse').onclick=()=>{open.clear();renderTree()};
-const GW=190,GG=56,GH=40,GR=52,GP=20,HEAD=38;
+const GP=20,HEAD=38;let shrink=0,lastRows=0;
+const lerp=(a,b,u)=>a+(b-a)*u;
+// first 60% of the slider only tightens spacing and box size (text stays the same); the rest scales everything, text included
+function dims(t){const u=Math.min(t/0.6,1),v=Math.max((t-0.6)/0.4,0);
+ return{GW:Math.round(lerp(190,96,u)),GG:Math.round(lerp(56,22,u)),GR:Math.round(lerp(52,34,u)),GH:Math.round(lerp(40,30,u)),z:lerp(1,0.55,v)}}
 function renderGraph(){
  const host=$('#gs'),st=host.scrollTop,sl=host.scrollLeft;host.innerHTML='';
+ const {GW,GG,GH,GR,z}=dims(shrink/100);
  const root=buildTrie(),q=$('#q').value.trim().toLowerCase();
  const mark=n=>{let any=false;n.kids.forEach(c=>{if(mark(c))any=true});n.self=!!(q&&n.label&&n.label.toLowerCase().includes(q));n.sub=any;return n.self||any};
  mark(root);
@@ -589,11 +598,11 @@ function renderGraph(){
   if(!kids.length){y=row++*GR}
   else{const ys=kids.map(k=>lay(k,lv+1,u));y=(ys[0]+ys[ys.length-1])/2;ys.forEach(cy=>edges.push([lv,y,cy]))}
   nodes.push({c,lv,y});return y};
- vis(root,false).forEach(c=>lay(c,0,false));
+ vis(root,false).forEach(c=>lay(c,0,false));lastRows=row;
  $('#gsel').textContent=sel?fullText(sel):'Select a box to see its chain';$('#gopen').hidden=!sel;
  if(!nodes.length){host.append(el('div','empty',q?'No titles match "'+$('#q').value.trim()+'".':'No headers yet. Add one in List mode, or load a saved hierarchy.'));return}
  const X=lv=>GP+lv*(GW+GG),W=GP*2+8*GW+7*GG,H=HEAD+GP*2+row*GR,Y=y=>HEAD+GP+y;
- const cv=el('div','gcanvas'),hd=el('div','ghead');cv.style.width=W+'px';cv.style.height=H+'px';hd.style.width=W+'px';cv.append(hd);
+ const cv=el('div','gcanvas'),hd=el('div','ghead');cv.style.width=W+'px';cv.style.height=H+'px';cv.style.zoom=z;hd.style.width=W+'px';cv.append(hd);
  LEVELS.forEach((nm,i)=>{const d=el('div',null,nm),cl=el('div','gcol');
   d.style.left=cl.style.left=(X(i)-GG/2)+'px';d.style.width=cl.style.width=(GW+GG)+'px';hd.append(d);cv.append(cl)});
  const NS='http://www.w3.org/2000/svg',svg=document.createElementNS(NS,'svg'),pa=document.createElementNS(NS,'path');
@@ -603,13 +612,17 @@ function renderGraph(){
  nodes.forEach(({c,lv,y})=>{
   const n=el('div','gn l'+lv+(sel&&kOf(sel)===kOf(c.path)?' sel':'')+(c.self?' hit':''));
   n.style.cssText=`left:${X(lv)}px;top:${Y(y)}px;width:${GW}px;height:${GH}px`;
-  n.title=LEVELS[lv]+': '+c.label;n.append(el('span',null,c.label));n.tabIndex=0;
+  n.title=LEVELS[lv]+': '+c.label;n.style.setProperty('--lines',GH>=36?2:1);n.append(el('span',null,c.label));n.tabIndex=0;
   n.onclick=()=>{sel=c.path;renderTree();renderView()};
   n.onkeydown=e=>{if(e.key==='Enter')n.click()};cv.append(n)});
  host.append(cv);host.scrollTop=st;host.scrollLeft=sl}
 function setMode(m){mode=m;document.body.classList.toggle('tree-mode',m==='graph');
  $('#mode').textContent=m==='graph'?'List mode':'Tree mode';
  if(m==='graph'){$('#gq').value=$('#q').value;renderGraph()}else{renderTree();renderView()}}
+$('#gz').oninput=e=>{shrink=+e.target.value;renderGraph()};
+$('#gfit').onclick=()=>{const h=$('#gs'),cw=h.clientWidth,ch=h.clientHeight;let t=1;
+ for(let i=0;i<=100;i++){const d=dims(i/100),w=2*GP+8*d.GW+7*d.GG,hh=HEAD+GP*2+lastRows*d.GR;if(w*d.z<=cw&&hh*d.z<=ch){t=i/100;break}}
+ shrink=Math.round(t*100);$('#gz').value=shrink;renderGraph()};
 $('#mode').onclick=()=>setMode(mode==='graph'?'list':'graph');
 $('#gopen').onclick=()=>{if(sel)for(let i=1;i<sel.length;i++)open.add(kOf(sel.slice(0,i)));setMode('list')};
 $('#q').oninput=()=>{$('#gq').value=$('#q').value;renderTree()};
