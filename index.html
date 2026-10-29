@@ -110,7 +110,8 @@ section.view>*{flex:none}
 .tools input{background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:4px 8px;width:190px}
 #ed{min-height:64px;max-height:160px;overflow:auto;padding:10px 12px;font:16px/1.55 var(--serif);outline:0}
 #ed:empty::before{content:attr(data-ph);color:var(--beige2)}
-.composer .foot{display:flex;justify-content:flex-end;padding:6px}
+.composer .foot{display:flex;justify-content:flex-end;gap:8px;padding:6px}
+.note .na{display:flex;flex-direction:column;gap:6px;align-self:flex-start}
 .ph{color:var(--beige2);padding:40px 28px;font:italic 18px var(--serif)}
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
 .modal{background:var(--panel);border:1px solid var(--beige2);border-radius:4px;width:min(560px,100%);max-height:92vh;overflow:auto;padding:20px}
@@ -296,14 +297,17 @@ function renderView(){
  nh.append(el('h3',null,'Sentences'));
  const sl=el('button','btn sm','Load list'),ss=el('button','btn sm','Save list');
  sl.onclick=()=>loadNotes();ss.onclick=()=>saveNotes();
- nh.append(sl,ss);n.append(nh);
+ const ca=el('button','btn sm','Copy all');ca.disabled=!list.length;
+ ca.onclick=async()=>{await copyRich(list.map(x=>'<div>'+clean(x.html)+'</div>').join(''));toast('Copied')};
+ nh.append(ca,sl,ss);n.append(nh);
  const L=el('div');L.id='list';
  if(!list.length)L.append(el('div','empty','No sentences for this chain yet. Write one below.'));
  list.forEach((s,i)=>{
   const row=el('div','note'),b=el('div','body');b.innerHTML=clean(s.html);
   const x=el('button','btn sm x','Remove');
   x.onclick=()=>{list.splice(i,1);if(!list.length)delete data.notes[key];persist('Removed a sentence from "'+sel[sel.length-1]+'"');renderView()};
-  row.append(b,x);L.append(row)});
+  const cpb=el('button','btn sm','Copy');cpb.onclick=async()=>{await copyRich(clean(s.html));toast('Copied')};
+  const na=el('div','na');na.append(cpb,x);row.append(b,na);L.append(row)});
  n.append(L);
 
  const co=el('div','composer'),tl=el('div','tools');
@@ -331,10 +335,15 @@ function renderView(){
   const out=h?clean(h):cd.getData('text/plain').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>');
   document.execCommand('insertHTML',false,out)});
  const foot=el('div','foot'),add=el('button','btn pri','Add sentence');
- add.onclick=()=>{const h=clean(ed.innerHTML);if(!ed.textContent.trim())return;
+ add.onclick=()=>{const h=tidy(clean(ed.innerHTML));if(!ed.textContent.trim())return;
   (data.notes[key]=data.notes[key]||[]).push({html:h});persist('Added a sentence to "'+sel[sel.length-1]+'"');renderView();
   const l=$('#list');l.scrollTop=l.scrollHeight};
- foot.append(add);co.append(tl,ed,foot);n.append(co);v.append(n)}
+ const sp=el('button','btn','Split into sentences');sp.title='Split everything in the box into separate sentences and add each one';
+ sp.onclick=()=>{if(!ed.textContent.trim())return;const parts=splitSentences(ed.innerHTML);if(!parts.length)return;
+  const arr=(data.notes[key]=data.notes[key]||[]);parts.forEach(h=>arr.push({html:h}));
+  persist(`Split text into ${parts.length} sentence${parts.length===1?'':'s'} under "${sel[sel.length-1]}"`);renderView();
+  const l=$('#list');l.scrollTop=l.scrollHeight;toast(parts.length+' sentence'+(parts.length===1?'':'s')+' added')};
+ foot.append(sp,add);co.append(tl,ed,foot);n.append(co);v.append(n)}
 
 // keep stored/pasted HTML to a small safe set
 function clean(html){
@@ -355,6 +364,33 @@ function clean(html){
   if(t==='A'){const h=c.getAttribute('href')||'';if(!/^(https?:|mailto:)/i.test(h))c.removeAttribute('href');c.target='_blank';c.rel='noopener noreferrer'}
  })})(d);
  return d.innerHTML}
+// removes extra spacing: doubles, tabs, non-breaking spaces, and spaces at the edges of words, tags and lines
+function tidy(h){return String(h).replace(/&nbsp;|\u00a0/g,' ')
+ .replace(/(<(?:b|strong|u|i|em|a)\b[^>]*>)(\s+)/gi,'$2$1').replace(/(\s+)(<\/(?:b|strong|u|i|em|a)>)/gi,'$2$1')
+ .replace(/\s+/g,' ').replace(/(<\/?(?:ul|ol|li|div|p|br)\b[^>]*>) /gi,'$1').replace(/ (<\/?(?:ul|ol|li|div|p|br)\b[^>]*>)/gi,'$1').trim()}
+const keep=h=>tidy(clean(String(h)));
+const ABBR=new Set(['mr','mrs','ms','dr','prof','sr','jr','st','vs','no','e.g','i.e','approx','dept','inc','ltd','co','cf']);
+// splits pasted text into sentences: every line or list item, then every . ! ? ending (skips abbreviations like Dr. and e.g.)
+function splitSentences(html){
+ let h=clean(html).replace(/&nbsp;|\u00a0/g,' ');
+ h=h.replace(/<br\s*\/?>|<\/(?:div|p|li|ul|ol)>/gi,'\u0001').replace(/<\/?(?:div|p|li|ul|ol)\b[^>]*>/gi,'');
+ const out=[];
+ const push=t=>{const c=tidy(clean(t));if(c&&c.replace(/<[^>]*>/g,'').trim())out.push(c)};
+ h.split('\u0001').forEach(line=>{
+  const re=/([.!?]+["'’”)\]]*(?:<\/[a-z]+>)*)(\s+)/gi;let last=0,m;
+  while((m=re.exec(line))){
+   const before=line.slice(0,m.index).replace(/<[^>]*>/g,''),w=(/([\w.]+)$/.exec(before)||[])[1]||'';
+   if(ABBR.has(w.toLowerCase())||/^[A-Z]$/.test(w)||/^\d+$/.test(before.trim()))continue;
+   push(line.slice(last,m.index+m[1].length));last=m.index+m[0].length}
+  push(line.slice(last))});
+ return out}
+async function copyRich(html){
+ const d=document.createElement('div');d.innerHTML=html.replace(/<br\s*\/?>/gi,'\n').replace(/<\/(div|p|li)>/gi,'\n');
+ const plain=d.textContent.trim();
+ try{await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})])}
+ catch(e){const r=document.createElement('div');r.innerHTML=html;r.style.cssText='position:fixed;left:-9999px;top:0';document.body.append(r);
+  const g=document.createRange();g.selectNodeContents(r);const sl=getSelection();sl.removeAllRanges();sl.addRange(g);
+  let ok=false;try{ok=document.execCommand('copy')}catch(x){}sl.removeAllRanges();r.remove();if(!ok)await copyText(plain)}}
 // strips bold, underline, italic and lists; keeps links
 function plain(html){
  const d=new DOMParser().parseFromString('<div>'+html+'</div>','text/html').body.firstChild;
@@ -410,7 +446,7 @@ function unpackAll(d){
  const walk=(list,p)=>list.forEach(o=>{
   const q=p.concat(String(o.n)),k=kOf(q);
   if(typeof o.w==='string'&&o.w.trim())wn[k]=o.w;
-  if(Array.isArray(o.s)&&o.s.length)nn[k]=o.s.map(h=>({html:clean(String(h))}));
+  if(Array.isArray(o.s)&&o.s.length)nn[k]=o.s.map(h=>({html:keep(h)}));
   if(Array.isArray(o.c)&&o.c.length)walk(o.c,q);
   else if(q.length<8)st.push(q);
   else if(q.length===8){const m=/^(\d+)\w* (enquiry|request)$/.exec(q[7]);
@@ -425,7 +461,7 @@ $('#aLoad').onclick=()=>loadBox('Load everything','Pasting replaces the whole hi
  else{const hs=parseHeaders(d),nn={},wn={};
   (Array.isArray(d.notes)?d.notes:[]).forEach(n=>{
    if(!Array.isArray(n.chain)||!Array.isArray(n.sentences))return;
-   const k=kOf(n.chain.map(String));nn[k]=(nn[k]||[]).concat(n.sentences.map(h=>({html:clean(String(h))})))});
+   const k=kOf(n.chain.map(String));nn[k]=(nn[k]||[]).concat(n.sentences.map(h=>({html:keep(h)})))});
   (Array.isArray(d.when)?d.when:[]).forEach(w=>{if(Array.isArray(w.chain)&&typeof w.text==='string'&&w.text.trim())wn[kOf(w.chain.map(String))]=w.text});
   nd={headers:hs,notes:nn,when:wn,stubs:[]}}
  data=nd;sel=null;open.clear();persist('Loaded everything from a saved code');
@@ -445,7 +481,7 @@ function loadNotes(){loadBox('Load sentence list','Each list remembers its chain
   else{const m=p.length===8&&/^(\d+)\w* (enquiry|request)$/.exec(p[7]);
    if(m){data.headers.push({scheme:p[0],category:p[1],enquiry:p[2],header:p[3],subject:p[4],topic:p[5],action:p[6],count:+m[1],type:m[2]==='request'?'req':'enq'});target=p;msg='Loaded. Chain recreated'}
    else msg='Chain not found, so sentences were added to the selected chain'}}
- const k=kOf(target);data.notes[k]=(data.notes[k]||[]).concat(a.map(h=>({html:clean(String(h))})));
+ const k=kOf(target);data.notes[k]=(data.notes[k]||[]).concat(a.map(h=>({html:keep(h)})));
  for(let i=1;i<target.length;i++)open.add(kOf(target.slice(0,i)));
  sel=target;persist('Loaded a sentence list');renderTree();renderView();return msg})}
 
