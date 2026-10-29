@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inventory</title>
 <meta name="theme-color" content="#121110">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%23121110%22/%3E%3Crect x=%222%22 y=%222%22 width=%2260%22 height=%2260%22 rx=%2212%22 fill=%22none%22 stroke=%22%23d8ccb2%22 stroke-opacity=%22.35%22 stroke-width=%222%22/%3E%3Cpath d=%22M22 32H30M30 18V46M30 18H38M30 32H38M30 46H38%22 fill=%22none%22 stroke=%22%23a89d86%22 stroke-width=%223%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3Crect x=%229%22 y=%2226%22 width=%2213%22 height=%2212%22 rx=%222.5%22 fill=%22%23d8ccb2%22/%3E%3Crect x=%2238%22 y=%2213%22 width=%2217%22 height=%2210%22 rx=%222.5%22 fill=%22%23a89d86%22/%3E%3Crect x=%2238%22 y=%2227%22 width=%2217%22 height=%2210%22 rx=%222.5%22 fill=%22%23efe6d2%22/%3E%3Crect x=%2238%22 y=%2241%22 width=%2217%22 height=%2210%22 rx=%222.5%22 fill=%22%23a89d86%22/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +21,7 @@ button{cursor:pointer}
 :focus-visible{outline:2px solid var(--beige);outline-offset:2px}
 header.top{flex-wrap:wrap;display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--ink)}
 .logo{width:30px;height:30px;flex:none}
-.brand{display:flex;align-items:center;gap:10px;font:600 24px var(--serif);color:var(--sand);letter-spacing:.01em;margin-right:auto}
+.brand{display:flex;align-items:center;gap:10px;font:600 24px var(--serif);color:var(--sand);letter-spacing:.01em;margin-right:12px}
 .btn{background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:6px 12px;color:var(--beige)}
 .btn:hover{border-color:var(--beige2)}
 .btn.pri{background:var(--beige);color:var(--ink);border-color:var(--beige);font-weight:600}
@@ -147,7 +148,61 @@ body.tree-mode #menu{display:none!important}
 .gn.l7{background:var(--beige2);color:var(--ink);border-color:var(--beige2);font-weight:600}
 .gn.hit{box-shadow:0 2px 0 var(--sand)}
 .gn.sel{background:var(--beige);color:var(--ink);border-color:var(--sand);outline:2px solid var(--sand);outline-offset:2px}
+#tpl{display:none;flex:1;min-height:0}
+body.tpl-mode main{display:none}
+body.tpl-mode #tpl{display:flex}
+body.tpl-mode .inv-only,body.tpl-mode #menu{display:none!important}
+.tabs{display:flex;gap:2px;margin-right:auto;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:2px}
+.tabs button{border:0;background:none;color:var(--beige2);padding:5px 14px;border-radius:3px;font-weight:500}
+.tabs button.on{background:var(--beige);color:var(--ink)}
+#tplside{width:290px;flex:none;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:16px}
+.seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{flex:1;border:0;background:none;color:var(--beige2);padding:6px 8px;font-size:13px}
+.seg button.on{background:var(--beige);color:var(--ink);font-weight:600}
+.fsec h4{margin:0 0 6px;font:600 12px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--beige2)}
+.flist label{display:flex;gap:8px;align-items:flex-start;padding:5px 6px;border-radius:3px;cursor:pointer;font-size:14px;overflow-wrap:anywhere}
+.flist label:hover{background:var(--panel2)}
+.flist input{accent-color:var(--beige);margin-top:3px}
+.flist small{margin-left:auto;color:var(--beige2)}
+.flist.hds{max-height:42vh;overflow-y:auto}
+.tplmain{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
+#tq{flex:1 1 220px;max-width:420px}
+#tfbtn{display:none}
+.tstat{color:var(--beige2);font-size:13px}
+.terr{padding:10px 18px;background:var(--panel2);border-bottom:1px solid var(--line);color:#e0a794;font-size:14px}
+.tscroll{flex:1;overflow:auto;padding:18px 24px 40px;background:var(--ink);min-height:0}
+.tfile{font:600 21px var(--serif);color:var(--sand);margin:26px 0 12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.tfile:first-child{margin-top:0}
+.tfile small{font:400 13px var(--sans);color:var(--beige2)}
+.tc{margin:0 0 16px;max-width:1000px}
+.tc-top{margin-bottom:5px}
+.tag{display:inline-block;background:var(--panel2);border:1px solid var(--beige2);color:var(--beige);border-radius:999px;padding:2px 11px;font-size:12.5px}
+.paper{background:#fff;color:#000;border-radius:4px;padding:14px 16px;font:11pt/1.15 Arial,Helvetica,sans-serif;overflow-x:auto}
+.paper p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.paper li{white-space:pre-wrap;overflow-wrap:anywhere}
+.paper a{color:#1155cc}
+.paper table{margin:6px 0}
+.paper td{overflow-wrap:anywhere}
+.paper mark{background:#ffe08a;color:#000;border-radius:2px}
+.paper .ful{font:11px/1.35 Arial,Helvetica,sans-serif;color:#5f6368;margin-top:2px;overflow-wrap:anywhere}
+.paper .pright{margin-top:10px;padding-top:10px;border-top:1px solid #e3e3e3}
+.modal.wide{width:min(780px,100%)}
+.lk-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.lk-top input[type=search]{flex:1 1 200px;background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:7px 10px;color:var(--beige)}
+.lk-chk{font-size:13px;color:var(--beige2);display:flex;align-items:center;gap:6px}
+.lk-chk input{accent-color:var(--beige)}
+.lk-info{margin:10px 0 6px;font-size:13px;color:var(--beige2)}
+.lk-list{max-height:52vh;overflow-y:auto;border:1px solid var(--line);border-radius:3px;background:var(--ink)}
+.lk-file{position:sticky;top:0;background:var(--panel2);padding:6px 12px;font:600 14px var(--serif);color:var(--sand);border-bottom:1px solid var(--line)}
+.lk-row{padding:9px 12px;border-bottom:1px solid var(--line);position:relative;padding-right:46px}
+.lk-row a{color:var(--sand);overflow-wrap:anywhere}
+.lk-url{font-size:12px;color:var(--beige2);overflow-wrap:anywhere;margin-top:2px}
+.lk-n{position:absolute;right:12px;top:10px;font-size:12px;color:var(--beige2)}
 @media(max-width:760px){
+ #tplside{position:fixed;inset:var(--hh,54px) 0 0 0;width:auto;z-index:5;transform:translateX(-100%);transition:transform .2s}
+ #tplside.open{transform:none}
+ #tfbtn{display:inline-block}
+ .tscroll{padding:14px 12px 30px}
  #menu{display:inline-block}
  aside{position:fixed;inset:var(--hh,54px) 0 0 0;width:auto;max-width:none;z-index:5;transform:translateX(-100%);transition:transform .2s}
  aside.open{transform:none}
@@ -162,12 +217,13 @@ body.tree-mode #menu{display:none!important}
 <header class="top">
  <button class="btn" id="menu">Tree</button>
  <div class="brand"><svg class="logo" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#121110"/><rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="#d8ccb2" stroke-opacity=".35" stroke-width="2"/><path d="M22 32H30M30 18V46M30 18H38M30 32H38M30 46H38" fill="none" stroke="#a89d86" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="9" y="26" width="13" height="12" rx="2.5" fill="#d8ccb2"/><rect x="38" y="13" width="17" height="10" rx="2.5" fill="#a89d86"/><rect x="38" y="27" width="17" height="10" rx="2.5" fill="#efe6d2"/><rect x="38" y="41" width="17" height="10" rx="2.5" fill="#a89d86"/></svg>Inventory</div>
+ <nav class="tabs"><button id="tabInv" class="on">Inventory</button><button id="tabTpl">FAQs</button></nav>
  <button class="info" id="info" aria-label="Last saved and recent changes" title="Last saved and recent changes">i</button>
- <button class="btn" id="mode">Tree mode</button>
- <button class="btn" id="hLoad">Load hierarchy</button>
- <button class="btn" id="hSave">Save hierarchy</button>
- <button class="btn" id="aLoad">Load all</button>
- <button class="btn pri" id="aSave">Save all</button>
+ <button class="btn inv-only" id="mode">Tree mode</button>
+ <button class="btn inv-only" id="hLoad">Load hierarchy</button>
+ <button class="btn inv-only" id="hSave">Save hierarchy</button>
+ <button class="btn inv-only" id="aLoad">Load all</button>
+ <button class="btn pri inv-only" id="aSave">Save all</button>
 </header>
 <main>
  <aside id="side">
@@ -194,6 +250,27 @@ body.tree-mode #menu{display:none!important}
   <div class="gscroll" id="gs"></div>
  </section>
 </main>
+<section id="tpl">
+ <aside id="tplside">
+  <div class="seg" id="tmode"><button class="on" data-m="show">Show selected</button><button data-m="hide">Hide selected</button></div>
+  <div class="fsec"><h4>Files</h4><div class="flist" id="fFiles"></div></div>
+  <div class="fsec"><h4>Headers</h4><div class="flist hds" id="fHeads"></div></div>
+  <button class="btn sm" id="tclear">Clear search and filters</button>
+ </aside>
+ <div class="tplmain">
+  <div class="gbar">
+   <button class="btn sm" id="tfbtn">Filters</button>
+   <input id="tq" type="search" placeholder="Search every FAQ" aria-label="Search every FAQ" autocomplete="off">
+   <button class="btn pri sm" id="tlinks">Hyperlinks</button>
+   <button class="btn sm" id="tadd" title="Open .docx files from your computer">Add files</button>
+   <button class="btn sm" id="trefresh" title="Reload the templates folder">Refresh</button>
+   <input type="file" id="tfile" accept=".docx" multiple hidden>
+   <div class="gsel" id="tcount"></div><span id="tstat" class="tstat"></span>
+  </div>
+  <div id="terr" class="terr" hidden></div>
+  <div class="tscroll" id="tcards"></div>
+ </div>
+</section>
 <div id="infop" hidden role="dialog" aria-label="Save activity"></div>
 <script>
 const LEVELS=['Scheme','Category','Enquiry','Header','Subject','Topic (Noun)','Action (Verb)','Enquiry / Request'];
@@ -400,8 +477,8 @@ function plain(html){
  return d.innerHTML}
 
 /* modals */
-function modal(title,body,acts){
- const s=el('div','scrim'),m=el('div','modal');
+function modal(title,body,acts,cls){
+ const s=el('div','scrim'),m=el('div','modal'+(cls?' '+cls:''));
  m.setAttribute('role','dialog');m.append(el('h3',null,title),body);
  const a=el('div','acts');acts.forEach(x=>a.append(x));m.append(a);s.append(m);
  const close=()=>s.remove();
@@ -752,6 +829,171 @@ $('#gq').oninput=()=>{$('#q').value=$('#gq').value;renderTree()};
 const flip=()=>{sortDir*=-1;const t=sortDir>0?'A–Z':'Z–A';$('#sort').textContent=t;$('#gsort').textContent=t;renderTree()};
 $('#sort').onclick=flip;$('#gsort').onclick=flip;
 $('#menu').onclick=()=>$('#side').classList.toggle('open');
+
+/* ===== Templates tab: reads .docx files from /templates and shows them with their formatting ===== */
+const WNS='http://schemas.openxmlformats.org/wordprocessingml/2006/main',RNS='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const kids=(e,n)=>e?[...e.children].filter(c=>c.localName===n):[],kid=(e,n)=>kids(e,n)[0]||null;
+const wv=(e,n='val')=>e?(e.getAttributeNS(WNS,n)||e.getAttribute('w:'+n)||null):null;
+const twp=t=>Math.round(t/15),txtOf=e=>[...e.getElementsByTagNameNS(WNS,'t')].map(t=>t.textContent).join('');
+const cellText=e=>e?[...e.getElementsByTagNameNS(WNS,'p')].map(txtOf).join(' ').replace(/\s+/g,' ').trim():'';
+const safeUrl=u=>/^(https?:|mailto:|tel:)/i.test(u||'')?u:null;
+const LST={decimal:'decimal',lowerLetter:'lower-alpha',upperLetter:'upper-alpha',lowerRoman:'lower-roman',upperRoman:'upper-roman'};
+const HLC={yellow:'#ffff00',green:'#00ff00',cyan:'#00ffff',magenta:'#ff00ff',blue:'#0000ff',red:'#ff0000',lightGray:'#d3d3d3'};
+function parseNumbering(xml){const o={nums:{},abs:{}};if(!xml)return o;const r=new DOMParser().parseFromString(xml,'application/xml').documentElement;
+ kids(r,'abstractNum').forEach(a=>{const lv={};kids(a,'lvl').forEach(l=>{const ind=kid(kid(l,'pPr'),'ind');
+  lv[wv(l,'ilvl')]={fmt:wv(kid(l,'numFmt')),text:wv(kid(l,'lvlText')),start:+(wv(kid(l,'start'))||1),left:ind?+(wv(ind,'left')||wv(ind,'start')||0):720}});o.abs[wv(a,'abstractNumId')]=lv});
+ kids(r,'num').forEach(n=>{o.nums[wv(n,'numId')]=wv(kid(n,'abstractNumId'))});return o}
+function imgHtml(d,ctx){const A='http://schemas.openxmlformats.org/drawingml/2006/',b=d.getElementsByTagNameNS(A+'main','blip')[0];if(!b)return '';
+ const src=ctx.imgs[b.getAttributeNS(RNS,'embed')];if(!src)return '';
+ const ex=d.getElementsByTagNameNS(A+'wordprocessingDrawing','extent')[0],w=ex?Math.round(+ex.getAttribute('cx')/9525):0;
+ return `<img src="${src}" alt="" style="max-width:100%;height:auto;${w?'width:'+w+'px':''}">`}
+function runHtml(r,ctx){
+ const pr=kid(r,'rPr'),st=[];let pre='',post='';
+ if(pr){const on=n=>{const e=kid(pr,n);if(!e)return false;const v=wv(e);return !(v==='0'||v==='false'||v==='off'||v==='none')};
+  if(on('b'))st.push('font-weight:700');if(on('i'))st.push('font-style:italic');
+  const td=[];if(on('u'))td.push('underline');if(on('strike')||on('dstrike'))td.push('line-through');if(td.length)st.push('text-decoration:'+td.join(' '));
+  const c=wv(kid(pr,'color'));if(c&&c!=='auto')st.push('color:#'+c);
+  const hl=wv(kid(pr,'highlight'));if(hl&&HLC[hl])st.push('background:'+HLC[hl]);
+  const sh=kid(pr,'shd'),sf=sh&&wv(sh,'fill');if(sf&&sf!=='auto')st.push('background:#'+sf);
+  const sz=wv(kid(pr,'sz'));if(sz&&+sz!==22)st.push('font-size:'+(+sz/22).toFixed(3)+'em');
+  const rf=kid(pr,'rFonts'),ff=rf&&(wv(rf,'ascii')||wv(rf,'hAnsi'));if(ff&&ff!=='Arial')st.push(`font-family:'${ff.replace(/'/g,'')}',Arial,sans-serif`);
+  if(on('caps'))st.push('text-transform:uppercase');if(on('smallCaps'))st.push('font-variant:small-caps');
+  const va=wv(kid(pr,'vertAlign'));if(va==='superscript'){pre='<sup>';post='</sup>'}else if(va==='subscript'){pre='<sub>';post='</sub>'}}
+ let c='';
+ for(const k of r.children){const n=k.localName;
+  if(n==='t')c+=xe(k.textContent);else if(n==='tab')c+='\u2003';else if(n==='br'){if(wv(k,'type')!=='page')c+='<br>'}
+  else if(n==='cr')c+='<br>';else if(n==='noBreakHyphen')c+='\u2011';else if(n==='drawing')c+=imgHtml(k,ctx)}
+ if(!c)return '';c=pre+c+post;return st.length?`<span style="${st.join(';')}">${c}</span>`:c}
+function inlineHtml(node,ctx,st,inLink){let out='';
+ for(const c of node.children){const n=c.localName;
+  if(n==='r'){out+=runHtml(c,ctx);if(!inLink&&txtOf(c).trim())st.gap=true}
+  else if(n==='hyperlink'){const id=c.getAttributeNS(RNS,'id'),rel=id&&ctx.rels[id],url=rel&&rel.mode==='External'?safeUrl(rel.target):null,inner=inlineHtml(c,ctx,st,true);
+   if(url){const text=txtOf(c);
+    if(st.last&&st.last.url===url&&!st.gap)st.last.text+=text;else{st.last={text,url};ctx.links.push(st.last);st.gap=false}
+    out+=`<a href="${xe(url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`}else out+=inner}
+  else if(['ins','smartTag','sdt','sdtContent','fldSimple','customXml'].includes(n))out+=inlineHtml(c,ctx,st,inLink)}
+ return out}
+function paraStyle(p){const ppr=kid(p,'pPr'),st=[];if(!ppr)return '';
+ const jc={center:'center',right:'right',end:'right',both:'justify'}[wv(kid(ppr,'jc'))];if(jc)st.push('text-align:'+jc);
+ const ind=kid(ppr,'ind');if(ind){const l=+(wv(ind,'left')||wv(ind,'start')||0),h=+(wv(ind,'hanging')||0),f=+(wv(ind,'firstLine')||0);
+  if(l)st.push('margin-left:'+twp(l)+'px');if(h)st.push('text-indent:-'+twp(h)+'px');else if(f)st.push('text-indent:'+twp(f)+'px')}
+ const sp=kid(ppr,'spacing');if(sp){const b=wv(sp,'before'),a=wv(sp,'after'),ln=wv(sp,'line');
+  if(b)st.push('margin-top:'+(+b/20)+'pt');if(a)st.push('margin-bottom:'+(+a/20)+'pt');if(ln&&(wv(sp,'lineRule')||'auto')==='auto')st.push('line-height:'+(+ln/240))}
+ const sh=kid(ppr,'shd'),f=sh&&wv(sh,'fill');if(f&&f!=='auto')st.push('background:#'+f);return st.join(';')}
+function blocksHtml(parent,ctx){let out='',cur=null;const close=()=>{if(cur){out+='</'+cur.tag+'>';cur=null}};
+ for(const c of parent.children){
+  if(c.localName==='p'){const np=kid(kid(c,'pPr'),'numPr'),numId=np&&wv(kid(np,'numId')),inner=inlineHtml(c,ctx,{last:null,gap:false},false);
+   if(numId&&numId!=='0'){const il=wv(kid(np,'ilvl'))||'0',lv=(ctx.num.abs[ctx.num.nums[numId]]||{})[il]||{fmt:'bullet',text:'●',start:1,left:720},key=numId+':'+il;
+    if(!cur||cur.key!==key){close();const bul=lv.fmt==='bullet',n0=ctx.counters[key]??(lv.start-1);cur={key,tag:bul?'ul':'ol'};
+     const ls=bul?({'○':'circle','■':'square'}[lv.text]||'disc'):(LST[lv.fmt]||'decimal');
+     out+=`<${cur.tag}${bul?'':` start="${n0+1}"`} style="list-style-type:${ls};padding-left:${Math.min(60,Math.max(24,twp(lv.left)))}px;margin:0">`}
+    ctx.counters[key]=(ctx.counters[key]??(lv.start-1))+1;
+    out+=`<li style="${paraStyle(c).replace(/margin-left:[^;]*;?|text-indent:[^;]*;?/g,'')}">${inner||'<br>'}</li>`}
+   else{close();out+=`<p style="${paraStyle(c)}">${inner||'<br>'}</p>`}}
+  else if(c.localName==='tbl'){close();out+=tblHtml(c,ctx)}
+  else if(c.localName==='sdt'){close();const s=kid(c,'sdtContent');if(s)out+=blocksHtml(s,ctx)}}
+ close();return out}
+function tblHtml(t,ctx){
+ const grid=kids(kid(t,'tblGrid'),'gridCol').map(g=>+wv(g,'w')||0),tot=grid.reduce((a,b)=>a+b,0)||1,tp=kid(t,'tblPr'),tb=kid(tp,'tblBorders');
+ const bd=(box,s)=>{const e=kid(box,s);if(!e)return null;const v=wv(e,'val');if(!v||v==='nil'||v==='none')return 'none';const c=wv(e,'color');return `${Math.max(1,Math.round((+wv(e,'sz')||4)/6))}px solid #${c&&c!=='auto'?c:'000000'}`};
+ const trs=kids(t,'tr'),rows=trs.map(tr=>{let col=0;return kids(tr,'tc').map(tc=>{const pr=kid(tc,'tcPr'),sp=+(wv(kid(pr,'gridSpan'))||1),vm=kid(pr,'vMerge'),c={tc,pr,col,sp,vm:vm?(wv(vm)==='restart'?'restart':'cont'):null,rs:1};col+=sp;return c})});
+ rows.forEach((r,i)=>r.forEach(c=>{if(c.vm==='restart')for(let k=i+1;k<rows.length;k++){const n=rows[k].find(x=>x.col===c.col&&x.vm==='cont');if(!n)break;n.skip=true;c.rs++}}));
+ const tw=kid(tp,'tblW'),mw=tw&&wv(tw,'type')==='dxa'?parseFloat(wv(tw,'w')):0,jc=wv(kid(tp,'jc'));
+ let h=`<table style="width:100%;${mw?'max-width:'+twp(mw)+'px;':''}table-layout:fixed;border-collapse:collapse${jc==='center'?';margin-left:auto;margin-right:auto':''}"><colgroup>${grid.map(g=>`<col style="width:${(g/tot*100).toFixed(2)}%">`).join('')}</colgroup>`;
+ trs.forEach((tr,i)=>{const th=wv(kid(kid(tr,'trPr'),'trHeight'));h+=`<tr${th?` style="height:${twp(+th)}px"`:''}>`;
+  rows[i].forEach(c=>{if(c.skip)return;const st=[],sh=kid(c.pr,'shd'),f=sh&&wv(sh,'fill'),cb=kid(c.pr,'tcBorders'),mar=kid(c.pr,'tcMar');
+   if(f&&f!=='auto')st.push('background:#'+f);
+   ['top','left','bottom','right'].forEach(s=>{const v=(cb?bd(cb,s):null)??bd(tb,s);if(v)st.push(`border-${s}:${v}`)});
+   const va=wv(kid(c.pr,'vAlign'));if(va)st.push('vertical-align:'+(va==='center'?'middle':va));
+   const m=s=>{const e=kid(mar,s);return e?Math.round(parseFloat(wv(e,'w'))/15):7};st.push(`padding:${m('top')}px ${m('right')}px ${m('bottom')}px ${m('left')}px`);
+   h+=`<td${c.sp>1?` colspan="${c.sp}"`:''}${c.rs>1?` rowspan="${c.rs}"`:''} style="${st.join(';')}">${blocksHtml(c.tc,ctx)}</td>`});h+='</tr>'});
+ return h+'</table>'}
+async function parseDocx(buf,name){
+ const zip=await JSZip.loadAsync(buf),rd=async p=>{const f=zip.file(p);return f?f.async('string'):null},P=s=>new DOMParser().parseFromString(s,'application/xml');
+ const dx=await rd('word/document.xml');if(!dx)throw new Error('not a .docx file');
+ const rels={},imgs={},rx=await rd('word/_rels/document.xml.rels');
+ if(rx)for(const r of P(rx).documentElement.children){const id=r.getAttribute('Id'),tg=r.getAttribute('Target'),ty=r.getAttribute('Type')||'',mode=r.getAttribute('TargetMode');rels[id]={target:tg,mode};
+  if(/\/image$/.test(ty)&&mode!=='External'){const path=tg[0]==='/'?tg.slice(1):'word/'+tg.replace(/^\.\//,''),f=zip.file(path),ext=path.split('.').pop().toLowerCase(),mime={png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp'}[ext];if(f&&mime)imgs[id]='data:'+mime+';base64,'+await f.async('base64')}}
+ const ctx={rels,imgs,num:parseNumbering(await rd('word/numbering.xml')),counters:{},links:[]},body=kid(P(dx).documentElement,'body'),tbl=kid(body,'tbl'),rows=[];
+ if(tbl)kids(tbl,'tr').slice(1).forEach(tr=>{const tc=kids(tr,'tc');if(!tc.length)return;const l0=ctx.links.length;
+  const mid=tc[1]?blocksHtml(tc[1],ctx):'',ml=ctx.links.slice(l0),right=tc[2]?blocksHtml(tc[2],ctx):'',links=ctx.links.slice(l0),urls=[...new Set(ml.map(l=>l.url))];
+  const header=cellText(tc[0])||'(No header)',m=cellText(tc[1]),r=cellText(tc[2]);if(!m&&!r)return;
+  rows.push({header,mid,right,urls,links,text:(header+' '+m+' '+r+' '+links.map(l=>l.url).join(' ')).toLowerCase()})});
+ else rows.push({header:'(No table)',mid:'',right:blocksHtml(body,ctx),urls:[],links:ctx.links.slice(),text:cellText(body).toLowerCase()});
+ return {name,title:name.replace(/\.docx$/i,'').replace(/[_]+/g,' '),rows,links:ctx.links}}
+const T={remote:[],local:[],files:[],q:'',mode:'show',selFiles:new Set(),selHeads:new Set(),loading:false,loaded:false};
+function tplBase(){let b=location.href.replace(/[#?].*$/,'');if(!b.endsWith('/')){const l=b.split('/').pop();b=l.includes('.')?b.slice(0,b.length-l.length):b+'/'}return b+'templates/'}
+async function tplList(){const errs=[];let repo=((document.querySelector('meta[name="templates-repo"]')||{}).content||'').trim();
+ if(!repo&&/\.github\.io$/i.test(location.hostname)){const o=location.hostname.split('.')[0],s=location.pathname.split('/').filter(Boolean)[0];repo=o+'/'+(s&&!s.includes('.')?s:o+'.github.io')}
+ if(repo){try{const r=await fetch('https://api.github.com/repos/'+repo+'/contents/templates',{headers:{Accept:'application/vnd.github+json'}});
+  if(r.ok){const j=await r.json();if(Array.isArray(j))return j.filter(f=>f.type==='file'&&/\.docx$/i.test(f.name)&&!f.name.startsWith('~$')).map(f=>f.name)}else errs.push('GitHub answered '+r.status)}catch(e){errs.push('GitHub could not be reached')}}
+ try{const r=await fetch(tplBase()+'index.json',{cache:'no-store'});if(r.ok){const j=await r.json();return (Array.isArray(j)?j:(j.files||[])).filter(n=>/\.docx$/i.test(n))}}catch(e){}
+ throw new Error('Could not list the templates folder automatically'+(errs.length?' ('+errs.join('; ')+')':'')+'.')}
+async function tplLoad(){if(T.loading)return;T.loading=true;const st=$('#tstat');st.textContent='Loading FAQs…';let err='';
+ try{if(typeof JSZip==='undefined')throw new Error('The docx reader did not load. Check your connection and refresh.');
+  const names=await tplList(),res=await Promise.allSettled(names.map(async n=>{const r=await fetch(tplBase()+encodeURIComponent(n),{cache:'no-store'});if(!r.ok)throw new Error(n+' ('+r.status+')');return parseDocx(await r.arrayBuffer(),n)}));
+  T.remote=res.filter(x=>x.status==='fulfilled').map(x=>x.value);const bad=res.filter(x=>x.status==='rejected').map(x=>x.reason.message);if(bad.length)err='Could not read: '+bad.join(', ');
+  if(!names.length)err='No .docx files found in the templates folder.'}catch(e){err=e.message+' Add a templates/index.json listing your file names, or use Add files.'}
+ T.loading=false;T.loaded=true;st.textContent='';tplMerge();$('#terr').textContent=err;$('#terr').hidden=!err}
+function tplMerge(){const by=new Map();T.remote.concat(T.local).forEach(f=>by.set(f.name,f));T.files=[...by.values()].sort((a,b)=>a.name.localeCompare(b.name));tplFilters();tplCards()}
+const tOk=(set,v)=>!set.size||(T.mode==='show'?set.has(v):!set.has(v));
+function tplVisible(){const toks=T.q.toLowerCase().split(/\s+/).filter(Boolean),out=[];
+ T.files.forEach(f=>{if(!tOk(T.selFiles,f.name))return;f.rows.forEach(r=>{if(tOk(T.selHeads,r.header)&&toks.every(t=>r.text.includes(t)))out.push({f,r})})});return out}
+function tplFilters(){const fl=$('#fFiles'),hd=$('#fHeads');fl.innerHTML='';hd.innerHTML='';
+ const mk=(host,set,val,label,n)=>{const l=el('label'),c=el('input');c.type='checkbox';c.checked=set.has(val);c.onchange=()=>{c.checked?set.add(val):set.delete(val);tplCards()};l.title=val;l.append(c,el('span',null,label),el('small',null,String(n)));host.append(l)};
+ T.files.forEach(f=>mk(fl,T.selFiles,f.name,f.title,f.rows.length));
+ const hc=new Map();T.files.forEach(f=>f.rows.forEach(r=>hc.set(r.header,(hc.get(r.header)||0)+1)));
+ [...hc].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([h,n])=>mk(hd,T.selHeads,h,h,n));
+ if(!T.files.length)fl.append(el('div','empty','No FAQ files loaded yet.'))}
+function hlText(root,toks){if(!toks.length)return;const src='('+toks.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')',rt=new RegExp(src,'i'),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),ns=[];
+ while(w.nextNode())ns.push(w.currentNode);
+ ns.forEach(n=>{const s=n.nodeValue;if(!rt.test(s))return;const re=new RegExp(src,'gi'),f=document.createDocumentFragment();let last=0,m;
+  while((m=re.exec(s))){f.append(s.slice(last,m.index));const k=document.createElement('mark');k.textContent=m[0];f.append(k);last=m.index+m[0].length}f.append(s.slice(last));n.replaceWith(f)})}
+function tplCards(){const host=$('#tcards'),vis=tplVisible(),toks=T.q.toLowerCase().split(/\s+/).filter(Boolean);let h='',cur=null,total=0;
+ T.files.forEach(f=>total+=f.rows.length);
+ vis.forEach(({f,r})=>{if(f!==cur){cur=f;h+=`<h3 class="tfile">${xe(f.title)}<small>${xe(f.name)}</small></h3>`}
+  h+=`<article class="tc"><div class="tc-top"><span class="tag">${xe(r.header)}</span></div><div class="paper"><div class="pmid">${r.mid}</div>${r.urls.map(u=>`<div class="ful">${xe(u)}</div>`).join('')}<div class="pright">${r.right}</div></div></article>`});
+ host.innerHTML=h||'<div class="empty">'+(T.loaded?'No entries match your search and filters.':'Loading…')+'</div>';hlText(host,toks);
+ $('#tcount').textContent=T.loaded?`${vis.length} of ${total} entries`:'';}
+function showLinks(){let only=false,fq='';
+ const w=el('div'),top=el('div','lk-top'),chk=el('label','lk-chk'),cb=el('input'),inp=el('input'),info=el('div','lk-info'),list=el('div','lk-list');
+ cb.type='checkbox';chk.append(cb,' Only links in the current search and filters');inp.type='search';inp.placeholder='Search these links';inp.autocomplete='off';top.append(inp,chk);w.append(top,info,list);
+ let cur=[],close;const ex=el('button','btn pri','Export .docx'),cpa=el('button','btn','Copy list'),cl=el('button','btn','Close');cl.onclick=()=>close();
+ const draw=()=>{list.innerHTML='';const q=fq.toLowerCase(),map=new Map(),add=(f,l)=>{const k=f.name+'\u0001'+l.text+'\u0001'+l.url,e=map.get(k);if(e)e.n++;else map.set(k,{file:f.title,text:l.text.trim()||l.url,url:l.url,n:1})};
+  if(only)tplVisible().forEach(({f,r})=>r.links.forEach(l=>add(f,l)));else T.files.forEach(f=>f.links.forEach(l=>add(f,l)));
+  cur=[...map.values()].filter(e=>!q||e.text.toLowerCase().includes(q)||e.url.toLowerCase().includes(q));
+  info.textContent=`${cur.length} unique link${cur.length===1?'':'s'} · ${cur.reduce((a,e)=>a+e.n,0)} in total`;let last=null;
+  cur.forEach(e=>{if(e.file!==last){last=e.file;list.append(el('div','lk-file',e.file))}
+   const row=el('div','lk-row'),a=el('a',null,e.text);a.href=e.url;a.target='_blank';a.rel='noopener noreferrer';row.append(a,el('div','lk-url',e.url));if(e.n>1)row.append(el('span','lk-n','×'+e.n));list.append(row)});
+  if(!cur.length)list.append(el('div','empty','No hyperlinks found.'));ex.textContent=`Export .docx (${cur.length})`;ex.disabled=cpa.disabled=!cur.length};
+ cb.onchange=()=>{only=cb.checked;draw()};inp.oninput=()=>{fq=inp.value;draw()};
+ ex.onclick=()=>exportLinksDocx(cur);cpa.onclick=async()=>{await copyText(cur.map(e=>e.text+'\n'+e.url).join('\n\n'));toast('Copied')};
+ draw();close=modal('Hyperlinks in the FAQs',w,[cl,cpa,ex],'wide')}
+async function exportLinksDocx(entries){
+ const rid=new Map();let n=1;const rel=u=>{if(!rid.has(u))rid.set(u,'rId'+(++n));return rid.get(u)},t=s=>`<w:t xml:space="preserve">${xe(s)}</w:t>`,files=[...new Set(entries.map(e=>e.file))];
+ let b=`<w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r>${t('FAQ hyperlinks')}</w:r></w:p><w:p><w:pPr><w:spacing w:after="240"/></w:pPr><w:r><w:rPr><w:color w:val="595959"/><w:sz w:val="18"/></w:rPr>${t(`${entries.length} links from ${files.length} FAQ file${files.length===1?'':'s'} · exported ${new Date().toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'})}`)}</w:r></w:p>`,last=null;
+ entries.forEach(e=>{if(e.file!==last){last=e.file;b+=`<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r>${t(e.file)}</w:r></w:p>`}
+  b+=`<w:p><w:pPr><w:keepNext/><w:spacing w:before="120" w:after="0"/></w:pPr><w:hyperlink r:id="${rel(e.url)}" w:history="1"><w:r><w:rPr><w:rStyle w:val="Hyperlink"/></w:rPr>${t(e.text)}</w:r></w:hyperlink></w:p><w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r><w:rPr><w:color w:val="595959"/><w:sz w:val="16"/></w:rPr>${t(e.url)}</w:r></w:p>`});
+ const X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',WN='xmlns:w="'+WNS+'"',RT='http://schemas.openxmlformats.org/officeDocument/2006/relationships/';
+ let rl=`<Relationship Id="rId1" Type="${RT}styles" Target="styles.xml"/>`;rid.forEach((id,u)=>{rl+=`<Relationship Id="${id}" Type="${RT}hyperlink" Target="${xe(u)}" TargetMode="External"/>`});
+ const z=new JSZip();
+ z.file('[Content_Types].xml',X+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>');
+ z.file('_rels/.rels',X+`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${RT}officeDocument" Target="word/document.xml"/></Relationships>`);
+ z.file('word/_rels/document.xml.rels',X+`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rl}</Relationships>`);
+ z.file('word/document.xml',X+`<w:document ${WN} xmlns:r="${RNS}"><w:body>${b}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+ z.file('word/styles.xml',X+`<w:styles ${WN}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:sz w:val="21"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:after="80"/></w:pPr><w:rPr><w:b/><w:sz w:val="40"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:pPr><w:keepNext/><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="2" w:color="BFBFBF"/></w:pBdr><w:spacing w:before="360" w:after="120"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="28"/></w:rPr></w:style><w:style w:type="character" w:styleId="Hyperlink"><w:name w:val="Hyperlink"/><w:rPr><w:color w:val="1155CC"/><w:u w:val="single"/></w:rPr></w:style></w:styles>`);
+ const blob=await z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download='faq-hyperlinks.docx';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);toast('Exported')}
+function setTab(t){document.body.classList.toggle('tpl-mode',t==='tpl');$('#tabInv').classList.toggle('on',t!=='tpl');$('#tabTpl').classList.toggle('on',t==='tpl');
+ if(t==='tpl'&&!T.loaded&&!T.loading)tplLoad()}
+$('#tabInv').onclick=()=>setTab('inv');$('#tabTpl').onclick=()=>setTab('tpl');
+let tqT;$('#tq').oninput=()=>{clearTimeout(tqT);tqT=setTimeout(()=>{T.q=$('#tq').value;tplCards()},120)};
+document.querySelectorAll('#tmode button').forEach(b=>b.onclick=()=>{T.mode=b.dataset.m;document.querySelectorAll('#tmode button').forEach(x=>x.classList.toggle('on',x===b));tplCards()});
+$('#tclear').onclick=()=>{T.selFiles.clear();T.selHeads.clear();T.q='';$('#tq').value='';tplFilters();tplCards()};
+$('#tlinks').onclick=showLinks;$('#trefresh').onclick=()=>{T.loaded=false;tplLoad()};
+$('#tfbtn').onclick=()=>$('#tplside').classList.toggle('open');
+$('#tadd').onclick=()=>$('#tfile').click();
+$('#tfile').onchange=async e=>{for(const f of e.target.files){try{const d=await parseDocx(await f.arrayBuffer(),f.name);T.local=T.local.filter(x=>x.name!==f.name).concat(d)}catch(x){toast(f.name+': '+x.message)}}e.target.value='';T.loaded=true;tplMerge()};
 
 const hh=()=>document.documentElement.style.setProperty('--hh',$('header.top').offsetHeight+'px');hh();addEventListener('resize',hh);
 restore();renderTree();renderView();
