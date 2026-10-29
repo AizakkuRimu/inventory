@@ -961,7 +961,8 @@ function showLinks(){let only=false,fq='';
  let cur=[],close;const ex=el('button','btn pri','Export .docx'),cpa=el('button','btn','Copy list'),cl=el('button','btn','Close');cl.onclick=()=>close();
  const draw=()=>{list.innerHTML='';const q=fq.toLowerCase(),map=new Map(),add=(f,l)=>{const k=f.name+'\u0001'+l.text+'\u0001'+l.url,e=map.get(k);if(e)e.n++;else map.set(k,{file:f.title,text:l.text.trim()||l.url,url:l.url,n:1})};
   if(only)tplVisible().forEach(({f,r})=>r.links.forEach(l=>add(f,l)));else T.files.forEach(f=>f.links.forEach(l=>add(f,l)));
-  cur=[...map.values()].filter(e=>!q||e.text.toLowerCase().includes(q)||e.url.toLowerCase().includes(q));
+  const fo=new Map();[...map.values()].forEach(e=>{if(!fo.has(e.file))fo.set(e.file,fo.size)});
+  cur=[...map.values()].filter(e=>!q||e.text.toLowerCase().includes(q)||e.url.toLowerCase().includes(q)).sort((a,b)=>fo.get(a.file)-fo.get(b.file)||a.text.localeCompare(b.text,undefined,{sensitivity:'base',numeric:true})||a.url.localeCompare(b.url));
   info.textContent=`${cur.length} unique link${cur.length===1?'':'s'} · ${cur.reduce((a,e)=>a+e.n,0)} in total`;let last=null;
   cur.forEach(e=>{if(e.file!==last){last=e.file;list.append(el('div','lk-file',e.file))}
    const row=el('div','lk-row'),a=el('a',null,e.text);a.href=e.url;a.target='_blank';a.rel='noopener noreferrer';row.append(a,el('div','lk-url',e.url));if(e.n>1)row.append(el('span','lk-n','×'+e.n));list.append(row)});
