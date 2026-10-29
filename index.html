@@ -832,6 +832,7 @@ $('#menu').onclick=()=>$('#side').classList.toggle('open');
 
 /* ===== Templates tab: reads .docx files from /templates and shows them with their formatting ===== */
 const WNS='http://schemas.openxmlformats.org/wordprocessingml/2006/main',RNS='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const xe=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const kids=(e,n)=>e?[...e.children].filter(c=>c.localName===n):[],kid=(e,n)=>kids(e,n)[0]||null;
 const wv=(e,n='val')=>e?(e.getAttributeNS(WNS,n)||e.getAttribute('w:'+n)||null):null;
 const twp=t=>Math.round(t/15),txtOf=e=>[...e.getElementsByTagNameNS(WNS,'t')].map(t=>t.textContent).join('');
