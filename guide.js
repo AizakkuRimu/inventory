@@ -4464,6 +4464,7 @@ function viewHome(){
    h('small',null,DATA.topics.filter(t=>t.stage===s.id).length+' topics')))));
  w.append(h('div',{class:'g-sec'},'Tools'));
  w.append(h('div',{class:'g-grid t'},[
+  ['practice','Practice with sample members','Fake enquiries to test yourself.'],
   ['wizard','Which scheme applies?','Answer 3–4 taps about the member.'],
   ['enquiries','Find by enquiry type','Category › Enquiry, mapped to topics.'],
   ['numbers','Numbers cheat sheet','Payouts, dates, fees, limits.'],
@@ -4587,7 +4588,7 @@ let shell=null;
 function render(){
  if(!shell)return;const body=$('#g-body');body.innerHTML='';
  const {view,arg}=parse(route);
- const m={home:viewHome,stage:()=>viewStage(arg),topic:()=>viewTopic(arg),glossary:viewGlossary,numbers:viewNumbers,enquiries:viewEnquiries,contacts:viewContacts,wizard:()=>viewWizard(arg),search:()=>viewSearch(arg)};
+ const m={home:viewHome,stage:()=>viewStage(arg),topic:()=>viewTopic(arg),glossary:viewGlossary,numbers:viewNumbers,enquiries:viewEnquiries,contacts:viewContacts,wizard:()=>viewWizard(arg),search:()=>viewSearch(arg),practice:()=>window.Quiz?Quiz.view(arg,Guide.api):h('div',{class:'g-wrap'},h('div',{class:'g-note warn'},'Practice mode needs quiz.js next to guide.js, loaded after it.'))};
  body.append((m[view]||viewHome)());
  const gs=$('#gsearch');if(view!=='search'&&gs.value&&document.activeElement!==gs)gs.value=''}
 function setMode(m){gmode=m;document.body.classList.toggle('guide-mode',m==='guide');const a=$('#gm-guide'),b=$('#gm-list');if(a){a.classList.toggle('on',m==='guide');b.classList.toggle('on',m==='list')}}
@@ -4597,7 +4598,7 @@ function build(){
  shell=h('div',{id:'guide'},
   h('div',{class:'gbar'},h('div',{class:'seg g-seg'},h('button',{id:'gm-guide',class:'on',onclick:()=>setMode('guide')},'Guide'),h('button',{id:'gm-list',onclick:()=>setMode('list')},'All FAQs')),
    h('input',{id:'gsearch',type:'search',placeholder:'Search the guide, jargon and every FAQ',autocomplete:'off','aria-label':'Search the guide',oninput:e=>{const v=e.target.value.trim();clearTimeout(build.t);build.t=setTimeout(()=>{if(v){lastQ=v;go('search/'+encodeURIComponent(v),{replace:parse(route).view==='search'})}else if(parse(route).view==='search')go('home')},150)}}),
-   link('home','btn sm','Home'),link('wizard','btn sm','Which scheme?')),
+   link('home','btn sm','Home'),link('wizard','btn sm','Which scheme?'),link('practice','btn sm','Practice')),
   h('div',{id:'g-scroll'},h('div',{id:'g-body'})));
  tpl.append(shell);
  const tg=$('#tguide');if(tg)tg.onclick=()=>setMode('guide');
@@ -4609,6 +4610,7 @@ const Guide={
  refresh(){if(!shell)return;buildIndex();render()},
  go,setMode
 };
+Guide.api={h,chip,link,go,faqItem,resolve,topicById,DATA,norm,crumbs,table};
 window.Guide=Guide;
 if(/^#guide/.test(location.hash)){const t=()=>{try{setTab('tpl')}catch(e){setTimeout(t,50)}};t()}
 
