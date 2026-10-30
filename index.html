@@ -259,6 +259,7 @@ body.tpl-mode .inv-only,body.tpl-mode #menu{display:none!important}
  </aside>
  <div class="tplmain">
   <div class="gbar">
+   <button class="btn sm" id="tguide" title="Back to the guide">◀ Guide</button>
    <button class="btn sm" id="tfbtn">Filters</button>
    <input id="tq" type="search" placeholder="Search every FAQ" aria-label="Search every FAQ" autocomplete="off">
    <button class="btn pri sm" id="tlinks">Hyperlinks</button>
@@ -935,7 +936,7 @@ async function tplLoad(){if(T.loading)return;T.loading=true;const st=$('#tstat')
   T.remote=res.filter(x=>x.status==='fulfilled').map(x=>x.value);const bad=res.filter(x=>x.status==='rejected').map(x=>x.reason.message);if(bad.length)err='Could not read: '+bad.join(', ');
   if(!names.length)err='No .docx files found in the templates folder.'}catch(e){err=e.message+' Add a templates/index.json listing your file names, or use Add files.'}
  T.loading=false;T.loaded=true;st.textContent='';tplMerge();$('#terr').textContent=err;$('#terr').hidden=!err}
-function tplMerge(){const by=new Map();T.remote.concat(T.local).forEach(f=>by.set(f.name,f));T.files=[...by.values()].sort((a,b)=>a.name.localeCompare(b.name));tplFilters();tplCards()}
+function tplMerge(){const by=new Map();T.remote.concat(T.local).forEach(f=>by.set(f.name,f));T.files=[...by.values()].sort((a,b)=>a.name.localeCompare(b.name));tplFilters();tplCards();window.Guide&&Guide.refresh()}
 const tOk=(set,v)=>!set.size||(T.mode==='show'?set.has(v):!set.has(v));
 function tplVisible(){const toks=T.q.toLowerCase().split(/\s+/).filter(Boolean),out=[];
  T.files.forEach(f=>{if(!tOk(T.selFiles,f.name))return;f.rows.forEach(r=>{if(tOk(T.selHeads,r.header)&&toks.every(t=>r.text.includes(t)))out.push({f,r})})});return out}
@@ -986,6 +987,7 @@ async function exportLinksDocx(entries){
  const blob=await z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}),a=document.createElement('a');
  a.href=URL.createObjectURL(blob);a.download='faq-hyperlinks.docx';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1500);toast('Exported')}
 function setTab(t){document.body.classList.toggle('tpl-mode',t==='tpl');$('#tabInv').classList.toggle('on',t!=='tpl');$('#tabTpl').classList.toggle('on',t==='tpl');
+ if(t==='tpl'&&window.Guide)Guide.onOpen();
  if(t==='tpl'&&!T.loaded&&!T.loading)tplLoad()}
 $('#tabInv').onclick=()=>setTab('inv');$('#tabTpl').onclick=()=>setTab('tpl');
 let tqT;$('#tq').oninput=()=>{clearTimeout(tqT);tqT=setTimeout(()=>{T.q=$('#tq').value;tplCards()},120)};
@@ -999,5 +1001,6 @@ $('#tfile').onchange=async e=>{for(const f of e.target.files){try{const d=await 
 const hh=()=>document.documentElement.style.setProperty('--hh',$('header.top').offsetHeight+'px');hh();addEventListener('resize',hh);
 restore();renderTree();renderView();
 </script>
+<script src="guide.js"></script>
 </body>
 </html>
