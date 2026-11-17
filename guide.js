@@ -4557,7 +4557,7 @@ function viewWizard(id){
 
 /* ---------- search ---------- */
 function search(q){
- const toks=q.toLowerCase().split(/\s+/).filter(Boolean),res={topics:[],gloss:[],faqs:[]};
+ const toks=parseQ(q,T.exact),res={topics:[],gloss:[],faqs:[]};
  if(!toks.length)return{res,toks};
  DATA.topics.forEach(t=>{
   const hay=(t.title+' '+t.summary+' '+(t.say||[]).join(' ')+' '+(t.steps||[]).join(' ')+' '+(t.watch||[]).join(' ')+' '+(t.keys||'')+' '+(t.cats||[]).join(' ')+' '+(t.tables||[]).map(x=>x.rows.flat().join(' ')).join(' ')+' '+(t.gap||'')).toLowerCase();
@@ -4566,7 +4566,7 @@ function search(q){
   res.topics.push([sc,t])});
  res.topics.sort((a,b)=>b[0]-a[0]);
  DATA.glossary.forEach(x=>{const hay=(x.term+' '+x.meaning).toLowerCase();if(toks.every(k=>hay.includes(k)))res.gloss.push(x)});
- IDX.rows.forEach(o=>{if(!toks.every(k=>o.r._t.includes(k)))return;let sc=0;const ql=o.r._q.toLowerCase();toks.forEach(k=>{if(ql.includes(k))sc+=3;sc+=1});res.faqs.push([sc,o])});
+ IDX.rows.forEach(o=>{if(!toks.every(k=>(o.r._tc||(o.r._tc=o.r._t.replace(/\s+/g,' '))).includes(k)))return;let sc=0;const ql=o.r._q.toLowerCase();toks.forEach(k=>{if(ql.includes(k))sc+=3;sc+=1});res.faqs.push([sc,o])});
  res.faqs.sort((a,b)=>b[0]-a[0]);
  const seen=new Set();res.faqs=res.faqs.filter(([s,o])=>{const k=norm(o.r._q);if(seen.has(k))return false;seen.add(k);return true});
  return{res,toks}}

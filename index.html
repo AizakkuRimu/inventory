@@ -167,6 +167,7 @@ body.tpl-mode .inv-only,body.tpl-mode #menu{display:none!important}
 .flist.hds{max-height:42vh;overflow-y:auto}
 .tplmain{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0}
 #tq{flex:1 1 220px;max-width:420px}
+#tex{flex:none}
 #tfbtn{display:none}
 .tstat{color:var(--beige2);font-size:13px}
 .terr{padding:10px 18px;background:var(--panel2);border-bottom:1px solid var(--line);color:#e0a794;font-size:14px}
@@ -261,7 +262,8 @@ body.tpl-mode .inv-only,body.tpl-mode #menu{display:none!important}
   <div class="gbar">
    <button class="btn sm" id="tguide" title="Back to the guide">◀ Guide</button>
    <button class="btn sm" id="tfbtn">Filters</button>
-   <input id="tq" type="search" placeholder="Search every FAQ" aria-label="Search every FAQ" autocomplete="off">
+   <input id="tq" type="search" placeholder="Search every FAQ (use &quot;quotes&quot; for an exact phrase)" aria-label="Search every FAQ" autocomplete="off">
+   <div class="seg" id="tex" title="Any words: each word matched separately. Exact phrase: words together, in order."><button class="on" data-x="0">Any words</button><button data-x="1">Exact phrase</button></div>
    <button class="btn pri sm" id="tlinks">Hyperlinks</button>
    <button class="btn sm" id="tadd" title="Open .docx files from your computer">Add files</button>
    <button class="btn sm" id="trefresh" title="Reload the templates folder">Refresh</button>
@@ -922,7 +924,7 @@ async function parseDocx(buf,name){
   rows.push({header,mid,right,urls,links,text:(header+' '+m+' '+r+' '+links.map(l=>l.url).join(' ')).toLowerCase()})});
  else rows.push({header:'(No table)',mid:'',right:blocksHtml(body,ctx),urls:[],links:ctx.links.slice(),text:cellText(body).toLowerCase()});
  return {name,title:name.replace(/\.docx$/i,'').replace(/[_]+/g,' '),rows,links:ctx.links}}
-const T={remote:[],local:[],files:[],q:'',mode:'show',selFiles:new Set(),selHeads:new Set(),loading:false,loaded:false};
+const T={remote:[],local:[],files:[],q:'',exact:false,mode:'show',selFiles:new Set(),selHeads:new Set(),loading:false,loaded:false};
 function tplBase(){let b=location.href.replace(/[#?].*$/,'');if(!b.endsWith('/')){const l=b.split('/').pop();b=l.includes('.')?b.slice(0,b.length-l.length):b+'/'}return b+'templates/'}
 async function tplList(){const errs=[];let repo=((document.querySelector('meta[name="templates-repo"]')||{}).content||'').trim();
  if(!repo&&/\.github\.io$/i.test(location.hostname)){const o=location.hostname.split('.')[0],s=location.pathname.split('/').filter(Boolean)[0];repo=o+'/'+(s&&!s.includes('.')?s:o+'.github.io')}
@@ -937,20 +939,25 @@ async function tplLoad(){if(T.loading)return;T.loading=true;const st=$('#tstat')
   if(!names.length)err='No .docx files found in the templates folder.'}catch(e){err=e.message+' Add a templates/index.json listing your file names, or use Add files.'}
  T.loading=false;T.loaded=true;st.textContent='';tplMerge();$('#terr').textContent=err;$('#terr').hidden=!err}
 function tplMerge(){const by=new Map();T.remote.concat(T.local).forEach(f=>by.set(f.name,f));T.files=[...by.values()].sort((a,b)=>a.name.localeCompare(b.name));tplFilters();tplCards();window.Guide&&Guide.refresh()}
+/* Search terms: words are matched separately (any order). "quoted text" or Exact phrase mode matches the words together, in order. */
+function parseQ(q,exact){q=String(q||'').toLowerCase().replace(/[\u201c\u201d]/g,'"');const sp=x=>x.replace(/\s+/g,' ').trim();
+ if(exact){const p=sp(q.replace(/"/g,' '));return p?[p]:[]}
+ const out=[];let rest=q.replace(/"([^"]+)"/g,(m,a)=>{a=sp(a);if(a)out.push(a);return ' '});
+ rest.split(/\s+/).filter(Boolean).forEach(w=>out.push(w));return out}
 const tOk=(set,v)=>!set.size||(T.mode==='show'?set.has(v):!set.has(v));
-function tplVisible(){const toks=T.q.toLowerCase().split(/\s+/).filter(Boolean),out=[];
- T.files.forEach(f=>{if(!tOk(T.selFiles,f.name))return;f.rows.forEach(r=>{if(tOk(T.selHeads,r.header)&&toks.every(t=>r.text.includes(t)))out.push({f,r})})});return out}
+function tplVisible(){const toks=parseQ(T.q,T.exact),out=[];
+ T.files.forEach(f=>{if(!tOk(T.selFiles,f.name))return;f.rows.forEach(r=>{if(tOk(T.selHeads,r.header)&&toks.every(t=>(r.tc||(r.tc=r.text.replace(/\s+/g,' '))).includes(t)))out.push({f,r})})});return out}
 function tplFilters(){const fl=$('#fFiles'),hd=$('#fHeads');fl.innerHTML='';hd.innerHTML='';
  const mk=(host,set,val,label,n)=>{const l=el('label'),c=el('input');c.type='checkbox';c.checked=set.has(val);c.onchange=()=>{c.checked?set.add(val):set.delete(val);tplCards()};l.title=val;l.append(c,el('span',null,label),el('small',null,String(n)));host.append(l)};
  T.files.forEach(f=>mk(fl,T.selFiles,f.name,f.title,f.rows.length));
  const hc=new Map();T.files.forEach(f=>f.rows.forEach(r=>hc.set(r.header,(hc.get(r.header)||0)+1)));
  [...hc].sort((a,b)=>a[0].localeCompare(b[0])).forEach(([h,n])=>mk(hd,T.selHeads,h,h,n));
  if(!T.files.length)fl.append(el('div','empty','No FAQ files loaded yet.'))}
-function hlText(root,toks){if(!toks.length)return;const src='('+toks.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')',rt=new RegExp(src,'i'),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),ns=[];
+function hlText(root,toks){if(!toks.length)return;const src='('+toks.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/ /g,'\\s+')).join('|')+')',rt=new RegExp(src,'i'),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),ns=[];
  while(w.nextNode())ns.push(w.currentNode);
  ns.forEach(n=>{const s=n.nodeValue;if(!rt.test(s))return;const re=new RegExp(src,'gi'),f=document.createDocumentFragment();let last=0,m;
   while((m=re.exec(s))){f.append(s.slice(last,m.index));const k=document.createElement('mark');k.textContent=m[0];f.append(k);last=m.index+m[0].length}f.append(s.slice(last));n.replaceWith(f)})}
-function tplCards(){const host=$('#tcards'),vis=tplVisible(),toks=T.q.toLowerCase().split(/\s+/).filter(Boolean);let h='',cur=null,total=0;
+function tplCards(){const host=$('#tcards'),vis=tplVisible(),toks=parseQ(T.q,T.exact);let h='',cur=null,total=0;
  T.files.forEach(f=>total+=f.rows.length);
  vis.forEach(({f,r})=>{if(f!==cur){cur=f;h+=`<h3 class="tfile">${xe(f.title)}<small>${xe(f.name)}</small></h3>`}
   h+=`<article class="tc"><div class="tc-top"><span class="tag">${xe(r.header)}</span></div><div class="paper"><div class="pmid">${r.mid}</div>${r.urls.map(u=>`<div class="ful">${xe(u)}</div>`).join('')}<div class="pright">${r.right}</div></div></article>`});
@@ -990,9 +997,11 @@ function setTab(t){document.body.classList.toggle('tpl-mode',t==='tpl');$('#tabI
  if(t==='tpl'&&window.Guide)Guide.onOpen();
  if(t==='tpl'&&!T.loaded&&!T.loading)tplLoad()}
 $('#tabInv').onclick=()=>setTab('inv');$('#tabTpl').onclick=()=>setTab('tpl');
+const tExSync=()=>$('#tex').querySelectorAll('button').forEach(b=>b.classList.toggle('on',(b.dataset.x==='1')===T.exact));
+$('#tex').onclick=e=>{const b=e.target.closest('button');if(!b)return;T.exact=b.dataset.x==='1';tExSync();tplCards()};
 let tqT;$('#tq').oninput=()=>{clearTimeout(tqT);tqT=setTimeout(()=>{T.q=$('#tq').value;tplCards()},120)};
 document.querySelectorAll('#tmode button').forEach(b=>b.onclick=()=>{T.mode=b.dataset.m;document.querySelectorAll('#tmode button').forEach(x=>x.classList.toggle('on',x===b));tplCards()});
-$('#tclear').onclick=()=>{T.selFiles.clear();T.selHeads.clear();T.q='';$('#tq').value='';tplFilters();tplCards()};
+$('#tclear').onclick=()=>{T.exact=false;tExSync();T.selFiles.clear();T.selHeads.clear();T.q='';$('#tq').value='';tplFilters();tplCards()};
 $('#tlinks').onclick=showLinks;$('#trefresh').onclick=()=>{T.loaded=false;tplLoad()};
 $('#tfbtn').onclick=()=>$('#tplside').classList.toggle('open');
 $('#tadd').onclick=()=>$('#tfile').click();
