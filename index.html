@@ -976,11 +976,11 @@ function pre(a,b){return b.length<=a.length&&b.every((x,i)=>a[i]===x)}
 function dup(path){
  if(path.length===8){doDup(path,false);return}
  const w=el('div');
- w.append(el('p',null,'Everything inside: copies this folder with every folder and header below it.'),el('p',null,'This folder only: copies just this one, left empty with nothing below it.'));
- let close;const b1=el('button','btn pri','Everything inside'),b2=el('button','btn','This folder only'),cl=el('button','btn','Cancel');
- b1.onclick=()=>{close();doDup(path,false)};b2.onclick=()=>{close();doDup(path,true)};cl.onclick=()=>close();
- close=modal('Duplicate "'+path[path.length-1]+'"',w,[cl,b2,b1])}
-function doDup(path,empty){
+ w.append(el('p',null,'Everything inside: copies this folder with every folder and header below it.'),el('p',null,'Everything inside, no sentences: copies every folder and header below it, and the "When to use" notes, but leaves out all sentences.'),el('p',null,'This folder only: copies just this one, left empty with nothing below it.'));
+ let close;const b1=el('button','btn pri','Everything inside'),b3=el('button','btn','Everything inside, no sentences'),b2=el('button','btn','This folder only'),cl=el('button','btn','Cancel');
+ b1.onclick=()=>{close();doDup(path,false)};b3.onclick=()=>{close();doDup(path,false,true)};b2.onclick=()=>{close();doDup(path,true)};cl.onclick=()=>close();
+ close=modal('Duplicate \"'+path[path.length-1]+'\"',w,[cl,b2,b3,b1])}
+function doDup(path,empty,noSent){
  const L=path.length-1,n8=path.length,par=path.slice(0,L);
  const src=empty?[]:data.headers.filter(h=>under(h,path,n8));
  const stubsUnder=empty?[]:data.stubs.filter(sp=>pre(sp,path));
@@ -1002,10 +1002,10 @@ function doDup(path,empty){
  }
  data.headers.push(...clones);data.stubs.push(...ns);
  const mt=p=>p.length>=n8&&path.every((x,i)=>x===p[i])&&(!empty||p.length===n8);
- for(const m of [data.notes,data.when])for(const key of Object.keys(m)){const p=JSON.parse(key);
+ for(const m of (noSent?[data.when]:[data.notes,data.when]))for(const key of Object.keys(m)){const p=JSON.parse(key);
   if(mt(p)){const q=p.slice();q[L]=np[L];const gm={};m[kOf(q)]=Array.isArray(m[key])?m[key].map(x=>{const c={...x};if(c.g)c.g=gm[c.g]||(gm[c.g]=newG());return c}):m[key]}}
  for(let i=1;i<np.length;i++)open.add(kOf(np.slice(0,i)));
- sel=np;persist('Duplicated "'+path[path.length-1]+'"'+(empty?' (folder only)':''));renderTree();renderView();toast('Duplicated')}
+ sel=np;persist('Duplicated "'+path[path.length-1]+'"'+(empty?' (folder only)':noSent?' (no sentences)':''));renderTree();renderView();toast(noSent?'Duplicated without sentences':'Duplicated')}
 function childLabels(p){let n=buildTrie();for(const x of p){n=n.kids.get(x);if(!n)return new Set()}return new Set(n.kids.keys())}
 function addEmptySub(path){
  const base=['Scheme','Category','Enquiry','Header','Subject','Topic','Action'];
