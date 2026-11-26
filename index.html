@@ -655,13 +655,14 @@ function tidy(h){return String(h).replace(/&nbsp;|\u00a0/g,' ')
  .replace(/\s+/g,' ').replace(/(<\/?(?:ul|ol|li|div|p|br)\b[^>]*>) /gi,'$1').replace(/ (<\/?(?:ul|ol|li|div|p|br)\b[^>]*>)/gi,'$1').trim()}
 const keep=h=>tidy(clean(String(h)));
 const ABBR=new Set(['mr','mrs','ms','dr','prof','sr','jr','st','vs','no','e.g','i.e','approx','dept','inc','ltd','co','cf']);
-// splits pasted text into sentences: every line or list item, then every . ! ? ending (skips abbreviations like Dr. and e.g.)
+// splits pasted text into sentences: every line or list item, then every . ! ? ending (skips abbreviations like Dr. and e.g.). A line that contains a hyperlink is not split.
 function splitSentences(html){
  let h=clean(html).replace(/&nbsp;|\u00a0/g,' ');
  h=h.replace(/<br\s*\/?>|<\/?(?:div|p|li|ul|ol)\b[^>]*>/gi,'\u0001');
  const out=[];
  const push=t=>{const c=tidy(clean(t));if(c&&c.replace(/<[^>]*>/g,'').trim())out.push(c)};
  h.split('\u0001').forEach(line=>{
+  if(/<a\b[^>]*\bhref=/i.test(line)){push(line);return} // a line with a hyperlink stays whole, so a full FAQ answer keeps its sentences and its link together
   const re=/([.!?]+["'’”)\]]*(?:<\/[a-z]+>)*)(\s+)/gi;let last=0,m;
   while((m=re.exec(line))){
    const before=line.slice(0,m.index).replace(/<[^>]*>/g,''),w=(/([\w.]+)$/.exec(before)||[])[1]||'';
