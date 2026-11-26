@@ -400,13 +400,28 @@ function drafterNames(){const seen=new Map();
  return [...seen.values()].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}))}
 function stampControls(init){
  const m0=normMeta(init);
- const dl=el('label',null,'Drafter'),di=el('input','dr');di.type='text';di.value=m0.d;di.placeholder='Name';di.maxLength=80;di.autocomplete='off';di.setAttribute('list','drl');di.setAttribute('aria-label','Drafter');
+ const NEWV='\u0001new';
+ const dl=el('label',null,'Drafter'),ds=el('select','drsel'),di=el('input','dr');
+ ds.setAttribute('aria-label','Drafter');
+ di.type='text';di.placeholder='Type a new name';di.maxLength=80;di.autocomplete='off';di.setAttribute('aria-label','New drafter name');di.hidden=true;
+ const fill=(keep)=>{ // rebuilt from every drafter found in the sentences right now
+  const names=drafterNames(),cur=keep==null?'':keep;
+  if(cur&&cur!==NEWV&&!names.some(n=>n.toLowerCase()===cur.toLowerCase()))names.push(cur);
+  ds.innerHTML='';ds.append(new Option('— None',''));
+  names.sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'})).forEach(n=>ds.append(new Option(n,n)));
+  ds.append(new Option('+ New name…',NEWV));
+  const hit=names.find(n=>n.toLowerCase()===cur.toLowerCase());
+  ds.value=cur===NEWV?NEWV:(hit||'')};
+ fill(m0.d);
+ ds.addEventListener('focus',()=>{if(ds.value!==NEWV)fill(ds.value)});
+ ds.addEventListener('mousedown',()=>{if(ds.value!==NEWV)fill(ds.value)});
+ ds.addEventListener('change',()=>{di.hidden=ds.value!==NEWV;if(!di.hidden){di.value='';di.focus()}});
  const ml=el('label',null,'Month'),ms=el('select');ms.append(new Option('—',0));MONTHS.forEach((n,i)=>ms.append(new Option(n,i+1)));ms.value=m0.m;ms.setAttribute('aria-label','Month');
  const yl=el('label',null,'Year'),yi=el('input','yr');yi.type='number';yi.min=1900;yi.max=2100;yi.placeholder='Year';yi.value=m0.y||'';yi.setAttribute('aria-label','Year');
- dl.append(di);ml.append(ms);yl.append(yi);
+ dl.append(ds,di);ml.append(ms);yl.append(yi);
  const get=()=>{let y=+yi.value||0;const m=+ms.value||0;if(m&&!y){y=new Date().getFullYear();yi.value=y} // a month with no year uses this year
-  return normMeta({d:di.value,m,y})};
- return {nodes:[dl,ml,yl],get,inputs:[di,ms,yi]}}
+  return normMeta({d:ds.value===NEWV?di.value:ds.value,m,y})};
+ return {nodes:[dl,ml,yl],get,inputs:[ds,di,ms,yi]}}
 function editMeta(s){
  const sc=stampControls(s),w=el('div'),g=el('div','grid');
  sc.nodes[0].classList.add('full');g.append(...sc.nodes);
