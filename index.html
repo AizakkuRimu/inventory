@@ -232,6 +232,15 @@ body.tpl-mode .inv-only,body.tpl-mode #menu{display:none!important}
 .lk-top input[type=search]{flex:1 1 200px;background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:7px 10px;color:var(--beige)}
 .lk-chk{font-size:13px;color:var(--beige2);display:flex;align-items:center;gap:6px}
 .lk-chk input{accent-color:var(--beige)}
+.sv-sum{font-weight:600;color:var(--sand)}
+.schrow.chd{background:rgba(216,204,178,.06)}
+.tag{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:9px;font:600 10.5px var(--sans);letter-spacing:.05em;text-transform:uppercase;vertical-align:2px;border:1px solid var(--line);color:var(--beige2)}
+.tag.chg{color:#e8c96b;border-color:#e8c96b}.tag.new{color:#8fd19e;border-color:#8fd19e}.tag.gone{color:#e0a794;border-color:#e0a794}
+.schn small.chn{color:#e8c96b}
+.lbx{max-height:52vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;margin-top:10px}
+.lbh{display:flex;align-items:center;gap:8px;margin-bottom:4px}.lbn{flex:1;font:600 13px var(--sans);color:var(--sand)}
+.lbox textarea{height:90px;width:100%;white-space:pre;overflow:auto}
+.bst{font-size:12.5px;color:var(--beige2);min-height:16px;margin-top:3px;overflow-wrap:anywhere}.bst.ok{color:#8fd19e}.bst.err{color:#e0a794}
 .lk-info{margin:10px 0 6px;font-size:13px;color:var(--beige2)}
 .lk-list{max-height:52vh;overflow-y:auto;border:1px solid var(--line);border-radius:3px;background:var(--ink)}
 .lk-file{position:sticky;top:0;background:var(--panel2);padding:6px 12px;font:600 14px var(--serif);color:var(--sand);border-bottom:1px solid var(--line)}
@@ -763,47 +772,98 @@ function mergeSchemes(dss,replaceAll){
   data.headers.push(...ds.headers);data.stubs.push(...ds.stubs);Object.assign(data.notes,ds.notes);Object.assign(data.when,ds.when)});
  return touched}
 
-$('#aSave').onclick=()=>{markSaved('Saved everything',true);
- const sch=packSchemes(),dj=el('button','btn','Download date.json');dj.onclick=downloadDate;
+// What each scheme looked like at the last Save all / Load all, so Save all can show which schemes changed
+let snap={};
+function takeSnap(names){const cur={};packSchemes().forEach(n=>cur[n.n]={n,t:schemeText(n)});
+ if(!names){snap=cur;return}
+ names.forEach(x=>{if(cur[x])snap[x]=cur[x];else delete snap[x]})}
+function flatNode(n){const m=new Map(),add=k=>m.set(k,(m.get(k)||0)+1);
+ (function w(o,p){const q=p.concat(o.n),k=JSON.stringify(q);add('F'+k);if(o.w)add('W'+k+'\u0001'+o.w);
+  (o.s||[]).forEach(h=>add('S'+k+'\u0001'+h));(o.c||[]).forEach(c=>w(c,q))})(n,[]);return m}
+function diffNode(o,n){const a=flatNode(o),b=flatNode(n),d={sa:0,sr:0,fa:0,fr:0,w:0};
+ new Set([...a.keys(),...b.keys()]).forEach(k=>{const x=(b.get(k)||0)-(a.get(k)||0);if(!x)return;
+  const t=k[0];if(t==='S'){x>0?d.sa+=x:d.sr-=x}else if(t==='F'){x>0?d.fa+=x:d.fr-=x}else d.w++});
+ const pl=(c,w)=>c+' '+w+(c===1?'':'s'),out=[];
+ if(d.sa)out.push('+'+pl(d.sa,'sentence'));if(d.sr)out.push('−'+pl(d.sr,'sentence'));
+ if(d.fa)out.push('+'+pl(d.fa,'folder'));if(d.fr)out.push('−'+pl(d.fr,'folder'));
+ if(d.w)out.push('description edited');
+ return out.join(', ')||'details changed'}
+
+$('#aSave').onclick=()=>{
+ const sch=packSchemes(),texts=sch.map(schemeText),hadSnap=Object.keys(snap).length>0;
+ const st=sch.map((n,i)=>{const o=snap[n.n];
+  if(!o)return {s:'new',note:hadSnap?'New scheme':'Not saved yet in this session'};
+  if(o.t===texts[i])return {s:'same',note:'No changes'};
+  return {s:'chg',note:diffNode(o.n,n)}});
+ const gone=Object.keys(snap).filter(x=>!sch.some(n=>n.n===x));
+ markSaved('Saved everything',true);
+ const dj=el('button','btn','Download date.json');dj.onclick=downloadDate;
  const body=el('div');let close;const cl=el('button','btn','Close');cl.onclick=()=>close();
- if(!sch.length){body.append(el('p',null,'Nothing to save yet.'));close=modal('Save everything',body,[cl,dj]);return}
- body.append(el('p',null,'Each scheme has its own text, so you can keep them separately. Copy them one at a time, or all together. Paste them back in with Load all.'));
- const texts=sch.map(schemeText),list=el('div','schl');
- sch.forEach((n,i)=>{
-  const row=el('div','schrow'),nm=el('div','schn'),nc=(n.c||[]).length,ns=countS(n);
-  nm.append(el('b',null,n.n),el('small',null,`${nc} categor${nc===1?'y':'ies'} · ${ns} sentence${ns===1?'':'s'} · ${Math.max(1,Math.round(texts[i].length/1024))} KB`));
+ if(!sch.length&&!gone.length){body.append(el('p',null,'Nothing to save yet.'));close=modal('Save everything',body,[cl,dj]);return}
+ const nChg=st.filter(x=>x.s!=='same').length+gone.length;
+ const sum=el('p','sv-sum');
+ sum.textContent=nChg?`${nChg} of ${sch.length+gone.length} scheme${sch.length+gone.length===1?'':'s'} changed since the last save${hadSnap?'':' (nothing has been saved or loaded yet this session)'}.`:'No scheme has changed since the last save.';
+ body.append(sum,el('p',null,'Each scheme has its own text, so you can keep them separately. Copy them one at a time, or all together. Paste them back in with Load all.'));
+ const list=el('div','schl'),order=sch.map((n,i)=>i).sort((x,y)=>(st[x].s==='same')-(st[y].s==='same'));
+ order.forEach(i=>{const n=sch[i],row=el('div','schrow'+(st[i].s==='same'?'':' chd')),nm=el('div','schn'),nc=(n.c||[]).length,ns=countS(n);
+  const tag=el('span','tag '+st[i].s,st[i].s==='same'?'Unchanged':st[i].s==='new'?'New':'Changed');
+  const bn=el('b',null,n.n);bn.append(tag);
+  nm.append(bn);
+  if(st[i].s!=='same')nm.append(el('small','chn',st[i].note));
+  nm.append(el('small',null,`${nc} categor${nc===1?'y':'ies'} · ${ns} sentence${ns===1?'':'s'} · ${Math.max(1,Math.round(texts[i].length/1024))} KB`));
   const vb=el('button','btn sm','View'),cb=el('button','btn pri sm','Copy'),ta=el('textarea');ta.readOnly=true;ta.hidden=true;
   vb.onclick=()=>{ta.hidden=!ta.hidden;vb.textContent=ta.hidden?'View':'Hide';if(!ta.hidden&&!ta.value)ta.value=texts[i]};
   cb.onclick=async()=>{await copyText(texts[i]);toast('Copied "'+n.n+'"')};
   row.append(nm,vb,cb,ta);list.append(row)});
+ gone.forEach(x=>{const row=el('div','schrow chd'),nm=el('div','schn'),bn=el('b',null,x);bn.append(el('span','tag gone','Removed'));
+  nm.append(bn,el('small','chn','This scheme was in the last save but is no longer here'));row.append(nm);list.append(row)});
  body.append(list);
+ const idx=sch.map((n,i)=>i),chIdx=idx.filter(i=>st[i].s!=='same');
+ const acts=[cl,dj];
+ if(chIdx.length&&chIdx.length<sch.length){const cc=el('button','btn','Copy changed only ('+chIdx.length+')');
+  cc.onclick=async()=>{await copyText(chIdx.map(i=>texts[i]).join('\n\n'));toast('Copied '+chIdx.length+' changed scheme'+(chIdx.length===1?'':'s'))};acts.push(cc)}
  const all=el('button','btn pri','Copy all schemes');all.onclick=async()=>{await copyText(texts.join('\n\n'));toast('Copied '+sch.length+' scheme'+(sch.length===1?'':'s'))};
- close=modal('Save everything',body,[cl,dj,all],'wide')};
+ if(sch.length)acts.push(all);
+ close=modal('Save everything',body,acts,'wide');
+ takeSnap()};
 
 $('#aLoad').onclick=()=>{
- const body=el('div'),ta=el('textarea'),info=el('div','lk-info'),msg=el('div','msg');ta.className='tall';
- ta.placeholder='Paste one scheme, or several schemes one after another';
- const top=el('div','lk-top'),pb=el('button','btn sm','Add from clipboard'),rl=el('label','lk-chk'),ck=el('input');ck.type='checkbox';
- rl.append(ck,document.createTextNode('Replace everything (remove schemes that are not pasted)'));top.append(pb,rl);
- body.append(el('p',null,'Paste a saved scheme, or several of them one after another. A pasted scheme replaces the scheme with the same name. Your other schemes stay as they are.'),top,ta,info,msg);
+ const body=el('div'),info=el('div','lk-info'),msg=el('div','msg'),boxes=el('div','lbx');
+ const top=el('div','lk-top'),rl=el('label','lk-chk'),ck=el('input'),addb=el('button','btn sm','Add another box'),clr=el('button','btn sm','Clear all');ck.type='checkbox';
+ rl.append(ck,document.createTextNode('Replace everything (remove schemes that are not pasted)'));top.append(addb,clr,rl);
+ body.append(el('p',null,'Paste one saved scheme into each box. A pasted scheme replaces the scheme with the same name. Your other schemes stay as they are.'),top,boxes,info,msg);
  let close;const ok=el('button','btn pri','Load'),cl=el('button','btn','Cancel');cl.onclick=()=>close();
- const parse=()=>{if(!ta.value.trim())return {sets:[]};
-  let ps;try{ps=splitJson(ta.value)}catch(e){return {sets:[],err:e.message}}
-  if(!ps.length)return {sets:[],err:'No saved text found in the box.'};
-  const sets=[];for(let i=0;i<ps.length;i++){try{sets.push({raw:ps[i],ds:datasetOf(ps[i])})}catch(e){return {sets,err:'Piece '+(i+1)+': '+e.message}}}
+ const rows=[];
+ const parseBox=t=>{if(!t.trim())return null;
+  let ps;try{ps=splitJson(t)}catch(e){return {sets:[],err:e.message}}
+  if(!ps.length)return {sets:[],err:'No saved text found in this box.'};
+  const sets=[];for(const raw of ps){try{sets.push({raw,ds:datasetOf(raw)})}catch(e){return {sets,err:e.message}}}
   return {sets}};
- const upd=()=>{const r=parse();info.innerHTML='';const seen={};
-  r.sets.forEach(x=>{const S=[...schemesOf(x.ds)];S.forEach(n=>seen[n]=(seen[n]||0)+1);
-   const cats=new Set();x.ds.headers.forEach(h=>cats.add(h.scheme+'\u0001'+h.category));x.ds.stubs.forEach(q=>{if(q.length>1)cats.add(q[0]+'\u0001'+q[1])});
-   const ns=Object.values(x.ds.notes).reduce((a,l)=>a+l.length,0);
-   info.append(el('div',null,`✓ ${S.join(', ')||'(empty)'} — ${cats.size} categor${cats.size===1?'y':'ies'}, ${ns} sentence${ns===1?'':'s'}`))});
+ const upd=()=>{info.innerHTML='';msg.textContent='';const all=[],seen={};let bad=false,filled=0;
+  rows.forEach((r,i)=>{const res=parseBox(r.ta.value);r.st.className='bst';r.st.textContent='';
+   if(!res){r.st.textContent='Empty';return}
+   filled++;
+   if(res.err){bad=true;r.st.className='bst err';r.st.textContent='✗ '+res.err;return}
+   const parts=res.sets.map(x=>{const S=[...schemesOf(x.ds)];S.forEach(n=>seen[n]=(seen[n]||0)+1);
+    const cats=new Set();x.ds.headers.forEach(h=>cats.add(h.scheme+'\u0001'+h.category));x.ds.stubs.forEach(q=>{if(q.length>1)cats.add(q[0]+'\u0001'+q[1])});
+    const ns=Object.values(x.ds.notes).reduce((a,l)=>a+l.length,0);
+    return `${S.join(', ')||'(empty)'} — ${cats.size} categor${cats.size===1?'y':'ies'}, ${ns} sentence${ns===1?'':'s'}`});
+   r.st.className='bst ok';r.st.textContent='✓ '+parts.join(' · ');all.push(...res.sets)});
   Object.keys(seen).filter(n=>seen[n]>1).forEach(n=>info.append(el('div','warn',`"${n}" is pasted more than once. The last one is used.`)));
-  msg.textContent=r.err||'';ok.disabled=!r.sets.length||!!r.err;return r};
- ta.oninput=upd;
- pb.onclick=async()=>{try{const t=await navigator.clipboard.readText();if(!t.trim()){toast('The clipboard is empty');return}
-   ta.value=(ta.value.trim()?ta.value.replace(/\s+$/,'')+'\n\n':'')+t;upd()}
-  catch(e){toast('Cannot read the clipboard here. Paste into the box instead.')}};
- ok.onclick=()=>{const r=upd();if(r.err||!r.sets.length)return;
+  ok.disabled=bad||!all.length;return {sets:all,bad,filled}};
+ const addBox=(focus)=>{const w=el('div','lbox'),h=el('div','lbh'),ta=el('textarea'),st=el('div','bst');
+  const n=rows.length+1;ta.placeholder='Paste scheme '+n+' here';
+  const lab=el('span','lbn','Scheme '+n),pb=el('button','btn sm','Paste from clipboard'),xb=el('button','btn sm','Clear');
+  h.append(lab,pb,xb);w.append(h,ta,st);boxes.append(w);
+  const r={ta,st};rows.push(r);
+  ta.oninput=upd;xb.onclick=()=>{ta.value='';upd()};
+  pb.onclick=async()=>{try{const t=await navigator.clipboard.readText();if(!t.trim()){toast('The clipboard is empty');return}ta.value=t;upd()}
+   catch(e){toast('Cannot read the clipboard here. Paste into the box instead.')}};
+  if(focus)ta.focus()};
+ for(let i=0;i<5;i++)addBox(false);
+ addb.onclick=()=>{addBox(true);boxes.lastChild.scrollIntoView({block:'nearest'})};
+ clr.onclick=()=>{rows.forEach(r=>r.ta.value='');upd()};
+ ok.onclick=()=>{const r=upd();if(r.bad||!r.sets.length)return;
   const was=meta.dirty,empty=!data.headers.length&&!data.stubs.length,full=ck.checked;
   const touched=mergeSchemes(r.sets.map(x=>x.ds),full),names=[...touched];
   if(full||(sel&&touched.has(sel[0])))sel=null;
@@ -815,8 +875,9 @@ $('#aLoad').onclick=()=>{
    const old=Array.isArray(m.l)?m.l.filter(x=>x&&x.t).map(x=>({t:String(x.t),a:+x.a||Date.now()})):[];
    meta.log=meta.log.slice(0,1).concat(old).slice(0,30)}
   meta.dirty=(full||empty)?false:was;
+  if(full)takeSnap();else takeSnap(names);
   close();renderInfo();renderTree();renderView();toast('Loaded '+what)};
- close=modal('Load everything',body,[cl,ok],'wide');ok.disabled=true;ta.focus()};
+ close=modal('Load everything',body,[cl,ok],'wide');ok.disabled=true;rows[0].ta.focus()};
 function saveNotes(){markSaved('Saved a sentence list',false);const l=data.notes[kOf(sel)]||[],o={chain:sel,sentences:l.map(s=>s.html)},dt=metaArr(l);if(dt)o.details=dt;saveBox('Save sentence list',JSON.stringify(o,null,2))}
 function loadNotes(){loadBox('Load sentence list','Each list remembers its chain. Sentences go back under that chain, which is recreated if it no longer exists.',d=>{
  const a=Array.isArray(d)?d:d.sentences;
