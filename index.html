@@ -113,6 +113,46 @@ section.view>*{flex:none}
 #ed:empty::before{content:attr(data-ph);color:var(--beige2)}
 .composer .foot{display:flex;justify-content:flex-end;gap:8px;padding:6px}
 .note .na{display:flex;flex-direction:column;gap:6px;align-self:flex-start}
+.notes-h{flex-wrap:wrap}
+.note .meta{margin-top:4px;font:12.5px var(--sans);color:var(--beige2)}
+.stamp{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);font-size:13px;color:var(--beige2)}
+.stamp label{display:flex;align-items:center;gap:6px}
+.stamp input,.stamp select{background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:4px 8px;color:var(--beige)}
+.stamp input.dr{width:170px}.stamp input.yr{width:84px}
+.gfold{border-bottom:1px solid var(--line)}
+.gfold:last-child{border:0}
+.gfold>summary{cursor:pointer;padding:9px 14px;background:var(--panel2);font:600 15px var(--serif);color:var(--sand);display:flex;gap:8px;align-items:baseline;list-style:none;position:sticky;top:0;z-index:1}
+.gfold>summary::-webkit-details-marker{display:none}
+.gfold>summary::before{content:'▸';color:var(--beige2);font-size:12px}
+.gfold[open]>summary::before{content:'▾'}
+.gfold>summary small{margin-left:auto;font:400 12.5px var(--sans);color:var(--beige2)}
+.note.dup{border-left:3px solid #e0a794;padding-left:11px}
+.note .org{margin-top:4px;font:12.5px var(--sans);color:var(--beige2)}
+.notes-h h3 small{font:400 13px var(--sans);color:var(--beige2);margin-left:8px}
+.btn.warn{border-color:#e0a794;color:#e0a794}
+.simbox{margin-top:10px;border:1px solid var(--line);border-radius:3px;background:var(--ink);font:15px/1.45 var(--serif)}
+.simbox[hidden]{display:none}
+.simrow{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-bottom:1px solid var(--line)}
+.simrow:last-child{border:0}
+.simrow .sb{flex:1;min-width:0;overflow-wrap:anywhere}
+.pct{flex:none;font:600 12px var(--sans);color:#e0a794;border:1px solid #e0a794;border-radius:999px;padding:1px 8px}
+.simmore{padding:6px 10px;font:13px var(--sans);color:var(--beige2)}
+.rv{border:1px solid var(--line);border-radius:3px;margin:0 0 14px;background:var(--panel)}
+.rv-new{padding:10px 12px;font:16px/1.5 var(--serif);color:var(--sand);overflow-wrap:anywhere}
+.rv .simbox{margin:0;border-width:1px 0;border-radius:0}
+.rv-ch{display:flex;align-items:center;gap:10px;padding:8px 10px;font-size:13px;color:var(--beige2)}
+.rv-ch .seg{width:200px}
+.schl{border:1px solid var(--line);border-radius:3px;background:var(--ink);max-height:55vh;overflow:auto}
+.schrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line)}
+.schrow:last-child{border:0}
+.schn{flex:1 1 180px;min-width:0;display:flex;flex-direction:column;overflow-wrap:anywhere}
+.schn b{font:600 16px var(--serif);color:var(--sand)}
+.schn small{color:var(--beige2);font-size:12.5px}
+.modal .schrow textarea{flex:1 0 100%;height:170px;white-space:pre;overflow:auto;margin-top:2px}
+.modal textarea.tall{height:250px}
+.lk-info div{padding:1px 0;overflow-wrap:anywhere}
+.lk-info .warn{color:#e0a794}
+.gmon{padding:5px 14px;font:600 11.5px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--beige2);background:var(--ink);border-bottom:1px solid var(--line)}
 .ph{color:var(--beige2);padding:40px 28px;font:italic 18px var(--serif)}
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
 .modal{background:var(--panel);border:1px solid var(--beige2);border-radius:4px;width:min(560px,100%);max-height:92vh;overflow:auto;padding:20px}
@@ -282,6 +322,7 @@ const KEY='inventory.v1';
 let data={headers:[],notes:{},when:{},stubs:[]};
 let sel=null, open=new Set(), sortDir=1, mode='list';
 const FIELDS=['scheme','category','enquiry','header','subject','topic','action'];
+const openSim=new WeakSet();let groupMode=false;const closedF=new Set();const stamp={d:'',m:0,y:0}; // sentence view: grouped toggle, collapsed folders, drafter/month/year kept for the next sentences you add
 
 const SEED={headers:[
  {scheme:'Housing',category:'Repairs',enquiry:'Maintenance',header:'Broken heater',subject:'SC',topic:'Heater',action:'Repair',count:1,type:'enq'},
@@ -336,6 +377,119 @@ function renderTree(){
    parent.append(wrap)})};
  draw(root,t,0,false);if(q&&!t.children.length)t.append(el('div','empty','No titles match "'+$('#q').value.trim()+'".'))}
 
+/* sentence details: drafter (a name), month and year. A sentence is {html, d?, m?, y?} */
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function normMeta(o){o=o||{};const d=String(o.d==null?'':o.d).replace(/\s+/g,' ').trim().slice(0,80),
+ y0=Math.round(+o.y)||0,y=(y0>=1900&&y0<=2100)?y0:0,m=y?Math.min(12,Math.max(0,Math.round(+o.m)||0)):0;return {d,m,y}}
+function withMeta(html,mt){const n={html},m=normMeta(mt);if(m.d)n.d=m.d;if(m.y){n.y=m.y;if(m.m)n.m=m.m}return n}
+function metaLine(s){const m=normMeta(s),p=[];if(m.d)p.push(m.d);if(m.y)p.push((m.m?MONTHS[m.m-1]+' ':'')+m.y);return p.join(' · ')}
+// parallel list for saving: one entry per sentence ({d,m,y}, or 0 for none); null when no sentence has any details
+function metaArr(list){let any=false;const a=list.map(x=>{const m=normMeta(x);if(!m.d&&!m.y)return 0;any=true;
+ const o={};if(m.d)o.d=m.d;if(m.m)o.m=m.m;if(m.y)o.y=m.y;return o});return any?a:null}
+function drafterNames(){const seen=new Map();
+ Object.values(data.notes).forEach(l=>(l||[]).forEach(x=>{const d=normMeta(x).d;if(d&&!seen.has(d.toLowerCase()))seen.set(d.toLowerCase(),d)}));
+ return [...seen.values()].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}))}
+function stampControls(init){
+ const m0=normMeta(init);
+ const dl=el('label',null,'Drafter'),di=el('input','dr');di.type='text';di.value=m0.d;di.placeholder='Name';di.maxLength=80;di.autocomplete='off';di.setAttribute('list','drl');di.setAttribute('aria-label','Drafter');
+ const ml=el('label',null,'Month'),ms=el('select');ms.append(new Option('—',0));MONTHS.forEach((n,i)=>ms.append(new Option(n,i+1)));ms.value=m0.m;ms.setAttribute('aria-label','Month');
+ const yl=el('label',null,'Year'),yi=el('input','yr');yi.type='number';yi.min=1900;yi.max=2100;yi.placeholder='Year';yi.value=m0.y||'';yi.setAttribute('aria-label','Year');
+ dl.append(di);ml.append(ms);yl.append(yi);
+ const get=()=>{let y=+yi.value||0;const m=+ms.value||0;if(m&&!y){y=new Date().getFullYear();yi.value=y} // a month with no year uses this year
+  return normMeta({d:di.value,m,y})};
+ return {nodes:[dl,ml,yl],get,inputs:[di,ms,yi]}}
+function editMeta(s){
+ const sc=stampControls(s),w=el('div'),g=el('div','grid');
+ sc.nodes[0].classList.add('full');g.append(...sc.nodes);
+ const dl=el('datalist');dl.id='drl';drafterNames().forEach(n=>dl.append(new Option(n,n)));
+ w.append(el('p',null,'Leave a field empty to remove it from this sentence.'),g,dl);
+ let close;const ok=el('button','btn pri','Save'),cl=el('button','btn','Cancel');cl.onclick=()=>close();
+ ok.onclick=()=>{const m=sc.get();delete s.d;delete s.m;delete s.y;
+  if(m.d)s.d=m.d;if(m.y){s.y=m.y;if(m.m)s.m=m.m}
+  close();persist('Changed the drafter or date of a sentence');renderView()};
+ close=modal('Sentence details',w,[cl,ok])}
+/* similar sentences: word-for-word match, in order. 'Over 50%' means shared words in the same order are more than half of both sentences. */
+const SIM=0.5,SIM_CAP=6000,SIM_MS=1200,HIT_MAX=10;
+const toks=h=>String(h).toLowerCase().replace(/<[^>]*>/g,' ').replace(/&[a-z0-9#]+;/g,' ').match(/[\p{L}\p{N}]+/gu)||[];
+function mkItem(html){const tk=toks(html),bag=new Map();tk.forEach(w=>bag.set(w,(bag.get(w)||0)+1));return {tk,bag}}
+function lcsLen(a,b){const n=a.length,m=b.length;if(!n||!m)return 0;let pv=new Array(m+1).fill(0),cu=new Array(m+1).fill(0);
+ for(let i=1;i<=n;i++){for(let j=1;j<=m;j++)cu[j]=a[i-1]===b[j-1]?pv[j-1]+1:Math.max(pv[j],cu[j-1]);const t=pv;pv=cu;cu=t}
+ return pv[m]}
+function simScore(A,B){const la=A.tk.length,lb=B.tk.length;if(!la||!lb)return 0;
+ if(2*Math.min(la,lb)<=SIM*(la+lb))return 0; // too different in length to pass
+ let ov=0;const [sm,lg]=A.bag.size<=B.bag.size?[A.bag,B.bag]:[B.bag,A.bag];
+ sm.forEach((c,w)=>{const d=lg.get(w);if(d)ov+=Math.min(c,d)});
+ if(2*ov<=SIM*(la+lb))return 0; // shared words alone are not enough
+ return 2*lcsLen(A.tk,B.tk)/(la+lb)}
+const pct=x=>Math.max(51,Math.round(x*100))+'%';
+// every sentence stored on this title or anywhere beneath it: [{s, key, p}]
+function scopeOf(p){const out=[],own=kOf(p);
+ Object.keys(data.notes).forEach(k=>{const q=JSON.parse(k);if(!pre(q,p))return;(data.notes[k]||[]).forEach(s=>out.push({s,key:k,p:q}))});
+ return out.sort((a,b)=>((a.key===own)?0:1)-((b.key===own)?0:1)||(a.key===b.key?0:a.p.join('\u0001').localeCompare(b.p.join('\u0001'),undefined,{numeric:true})))}
+// sentences in the list that are over 50% like another one in the same list: Map entry -> [{e, score}]
+function findSimilar(entries){const map=new Map();if(entries.length>SIM_CAP)return {map,skipped:true};
+ const it=entries.map(e=>mkItem(e.s.html)),t0=Date.now();let partial=false;
+ for(let i=0;i<it.length;i++){if(Date.now()-t0>SIM_MS){partial=true;break}for(let j=i+1;j<it.length;j++){const sc=simScore(it[i],it[j]);
+  if(sc>SIM){add(entries[i],entries[j],sc);add(entries[j],entries[i],sc)}}}
+ map.forEach(a=>a.sort((x,y)=>y.score-x.score).length=Math.min(a.length,HIT_MAX));return {map,skipped:false,partial}
+ function add(a,b,sc){let l=map.get(a);if(!l){l=[];l.total=0;map.set(a,l)}l.total++;l.push({e:b,score:sc});
+  if(l.length>HIT_MAX*3){l.sort((x,y)=>y.score-x.score);l.length=HIT_MAX}}}
+const orgOf=p=>p.length>sel.length?p.slice(sel.length).join(' > '):'';
+function removeEntry(e){const arr=data.notes[e.key];if(!arr)return;const i=arr.indexOf(e.s);if(i<0)return;
+ arr.splice(i,1);if(!arr.length)delete data.notes[e.key];persist('Removed a sentence from "'+e.p[e.p.length-1]+'"');renderView()}
+function simRow(h,removable){const r=el('div','simrow'),b=el('div','sb');
+ b.innerHTML=clean(h.e.s.html);
+ const info=[orgOf(h.e.p)||'This title',metaLine(h.e.s)].filter(Boolean).join(' · ');b.append(el('div','org',info));
+ r.append(el('span','pct',pct(h.score)),b);
+ if(removable){const x=el('button','btn sm danger','Remove');x.title='Remove this similar sentence';x.onclick=()=>removeEntry(h.e);r.append(x)}
+ return r}
+// before adding: flag new sentences that are over 50% like one already in scope; the user decides which to keep
+function reviewAdd(parts,scope,done){
+ const pool=scope.map(e=>({e,...mkItem(e.s.html)}));
+ const res=parts.map(h=>{const it=mkItem(h),hits=[];
+  pool.forEach(q=>{const sc=simScore(it,q);if(sc>SIM)hits.push({e:q.e,score:sc})});
+  hits.sort((a,b)=>b.score-a.score);return {h,hits,keep:false}});
+ const flagged=res.filter(r=>r.hits.length);
+ if(!flagged.length){done(parts);return}
+ const w=el('div'),here=sel[sel.length-1];
+ w.append(el('p',null,`${flagged.length} of ${res.length} new sentence${res.length===1?'':'s'} ${flagged.length===1?'is':'are'} over 50% similar to sentences already in "${here}"${sel.length<8?' (including everything under it)':''}. Choose what to keep.`));
+ let close;const ok=el('button','btn pri'),cl=el('button','btn','Back to editing');cl.onclick=()=>close();
+ const upd=()=>{const n=res.filter(r=>!r.hits.length||r.keep).length,sk=res.length-n;
+  ok.textContent=n?`Add ${n} sentence${n===1?'':'s'}${sk?` · skip ${sk}`:''}`:'Nothing to add';ok.disabled=!n};
+ flagged.forEach(r=>{
+  const box=el('div','rv'),nw=el('div','rv-new');nw.innerHTML=clean(r.h);box.append(nw);
+  const hs=el('div','simbox');r.hits.slice(0,5).forEach(h=>hs.append(simRow(h,false)));
+  if(r.hits.length>5)hs.append(el('div','simmore','+ '+(r.hits.length-5)+' more similar'));
+  box.append(hs);
+  const ch=el('div','rv-ch'),sg=el('div','seg'),kb=el('button',null,'Keep it'),sb=el('button','on','Skip it');
+  const set=k=>{r.keep=k;kb.className=k?'on':'';sb.className=k?'':'on';upd()};
+  kb.onclick=()=>set(true);sb.onclick=()=>set(false);
+  sg.append(kb,sb);ch.append(el('span',null,'This new sentence:'),sg);box.append(ch);w.append(box)});
+ const rest=res.length-flagged.length;
+ if(rest)w.append(el('p',null,`The other ${rest} ${rest===1?'has':'have'} no close match and will be added.`));
+ ok.onclick=()=>{close();done(res.filter(r=>!r.hits.length||r.keep).map(r=>r.h))};
+ upd();close=modal('Similar sentences found',w,[cl,ok],'wide')}
+
+// sentences as folders by drafter (A–Z), then month/year groups (newest first), then A–Z inside each group
+function drawGrouped(L,list,mkRow){
+ const cmp=(a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'});
+ const txt=s=>{const d=document.createElement('div');d.innerHTML=clean(s.html);return d.textContent.trim()};
+ const folders=new Map();
+ list.forEach(e=>{const m=normMeta(e.s),k=m.d.toLowerCase();
+  if(!folders.has(k))folders.set(k,{name:m.d,items:[]});folders.get(k).items.push({e,m,t:txt(e.s)})});
+ [...folders.entries()].sort((a,b)=>(!a[0]-!b[0])||cmp(a[1].name,b[1].name)).forEach(([k,f])=>{
+  const det=el('details','gfold');det.open=!closedF.has(k);
+  det.addEventListener('toggle',()=>{det.open?closedF.delete(k):closedF.add(k)});
+  const sm=el('summary');sm.append(el('span',null,f.name||'No drafter'),el('small',null,f.items.length+(f.items.length===1?' sentence':' sentences')));
+  det.append(sm);
+  const groups=new Map();
+  f.items.forEach(it=>{const g=it.m.y*100+it.m.m;if(!groups.has(g))groups.set(g,[]);groups.get(g).push(it)});
+  [...groups.keys()].sort((a,b)=>b-a).forEach(g=>{
+   const y=Math.floor(g/100),m=g%100;
+   det.append(el('div','gmon',!g?'No date':(m?MONTHS[m-1]+' '+y:String(y))));
+   groups.get(g).sort((a,b)=>cmp(a.t,b.t)).forEach(it=>det.append(mkRow(it.e)))});
+  L.append(det)})}
+
 function renderView(){
  const v=$('#view');v.innerHTML='';
  if(!sel){v.append(el('div','ph','Select any title in the hierarchy to see its chain and sentences.'));return}
@@ -374,20 +528,39 @@ function renderView(){
   else{wbody.append(el('div','when-txt',data.when[key]));wb.textContent='Edit';wb.className='btn sm';wb.onclick=()=>drawWhen(true)}};
  drawWhen(!data.when[key]);v.append(wh);
  const n=el('div','notes'),nh=el('div','notes-h');
- nh.append(el('h3',null,'Sentences'));
+ const scope=scopeOf(sel),sim=findSimilar(scope),nsim=sim.map.size;
+ const h3=el('h3',null,'Sentences');
+ if(scope.length)h3.append(el('small',null,scope.length+(nsim?' · '+nsim+' similar':'')));
+ nh.append(h3);
  const sl=el('button','btn sm','Load list'),ss=el('button','btn sm','Save list');
  sl.onclick=()=>loadNotes();ss.onclick=()=>saveNotes();
- const ca=el('button','btn sm','Copy all');ca.disabled=!list.length;
- ca.onclick=async()=>{await copyRich(list.map(x=>'<div>'+clean(x.html)+'</div>').join(''));toast('Copied')};
- nh.append(ca,sl,ss);n.append(nh);
+ const gb=el('button','btn sm',groupMode?'Show list':'Group by drafter');gb.title='Show sentences in folders by drafter, newest month first';
+ gb.onclick=()=>{groupMode=!groupMode;renderView()};
+ const ca=el('button','btn sm','Copy all');ca.disabled=!scope.length;
+ ca.onclick=async()=>{await copyRich(scope.map(x=>'<div>'+clean(x.s.html)+'</div>').join(''));toast('Copied')};
+ nh.append(gb,ca,sl,ss);n.append(nh);
  const L=el('div');L.id='list';
- if(!list.length)L.append(el('div','empty','No sentences for this chain yet. Write one below.'));
- list.forEach((s,i)=>{
+ if(!scope.length)L.append(el('div','empty',sel.length<8?'No sentences under this title yet. Write one below to add it here.':'No sentences for this chain yet. Write one below.'));
+ if(sim.skipped)L.append(el('div','empty','Too many sentences here to check for similar ones. Pick a smaller category.'));
+ else if(sim.partial)L.append(el('div','empty','This list is very large, so only part of it was checked for similar sentences. Pick a smaller category for a full check.'));
+ const mkRow=e=>{const s=e.s;
   const row=el('div','note'),b=el('div','body');b.innerHTML=clean(s.html);
-  const x=el('button','btn sm x','Remove');
-  x.onclick=()=>{list.splice(i,1);if(!list.length)delete data.notes[key];persist('Removed a sentence from "'+sel[sel.length-1]+'"');renderView()};
+  const og=orgOf(e.p),ml=metaLine(s);
+  if(og)b.append(el('div','org','Under: '+og));
+  if(ml)b.append(el('div','meta',ml));
+  const na=el('div','na'),hits=sim.map.get(e);
+  if(hits){row.classList.add('dup');
+   const box=el('div','simbox');b.append(box);
+   const fill=()=>{if(box.firstChild)return;hits.forEach(h=>box.append(simRow(h,true)));
+    if(hits.total>hits.length)box.append(el('div','simmore','+ '+(hits.total-hits.length)+' more similar'))};
+   box.hidden=!openSim.has(s);if(!box.hidden)fill();
+   const tag=el('button','btn sm warn','Similar ('+hits.total+')');tag.title='Over 50% like another sentence here. Show or hide it.';
+   tag.onclick=()=>{box.hidden=!box.hidden;if(box.hidden)openSim.delete(s);else{openSim.add(s);fill()}};na.append(tag)}
+  const x=el('button','btn sm x','Remove');x.onclick=()=>removeEntry(e);
   const cpb=el('button','btn sm','Copy');cpb.onclick=async()=>{await copyRich(clean(s.html));toast('Copied')};
-  const na=el('div','na');na.append(cpb,x);row.append(b,na);L.append(row)});
+  const eb=el('button','btn sm','Details');eb.title='Edit drafter, month and year';eb.onclick=()=>editMeta(s);
+  na.append(cpb,eb,x);row.append(b,na);return row};
+ if(groupMode&&scope.length)drawGrouped(L,scope,mkRow);else scope.forEach(e=>L.append(mkRow(e)));
  n.append(L);
 
  const co=el('div','composer'),tl=el('div','tools');
@@ -414,16 +587,24 @@ function renderView(){
  ed.addEventListener('paste',e=>{e.preventDefault();const cd=e.clipboardData,h=cd.getData('text/html');
   const out=h?clean(h):cd.getData('text/plain').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>');
   document.execCommand('insertHTML',false,out)});
+ const sc=stampControls(stamp),stp=el('div','stamp'),dlist=el('datalist');dlist.id='drl';drafterNames().forEach(nm=>dlist.append(new Option(nm,nm)));
+ stp.append(el('span',null,'Attach to new sentences:'),...sc.nodes,dlist);
+ sc.inputs.forEach(i=>i.addEventListener('change',()=>Object.assign(stamp,sc.get())));
  const foot=el('div','foot'),add=el('button','btn pri','Add sentence');
  add.onclick=()=>{const h=tidy(clean(ed.innerHTML));if(!ed.textContent.trim())return;
-  (data.notes[key]=data.notes[key]||[]).push({html:h});persist('Added a sentence to "'+sel[sel.length-1]+'"');renderView();
-  const l=$('#list');l.scrollTop=l.scrollHeight};
+  const mt=sc.get();Object.assign(stamp,mt);
+  reviewAdd([h],scope,got=>{if(!got.length)return;
+   (data.notes[key]=data.notes[key]||[]).push(withMeta(got[0],mt));persist('Added a sentence to "'+sel[sel.length-1]+'"');renderView();
+   const l=$('#list');if(!groupMode)l.scrollTop=l.scrollHeight})};
  const sp=el('button','btn','Split into sentences');sp.title='Split everything in the box into separate sentences and add each one';
  sp.onclick=()=>{if(!ed.textContent.trim())return;const parts=splitSentences(ed.innerHTML);if(!parts.length)return;
-  const arr=(data.notes[key]=data.notes[key]||[]);parts.forEach(h=>arr.push({html:h}));
-  persist(`Split text into ${parts.length} sentence${parts.length===1?'':'s'} under "${sel[sel.length-1]}"`);renderView();
-  const l=$('#list');l.scrollTop=l.scrollHeight;toast(parts.length+' sentence'+(parts.length===1?'':'s')+' added')};
- foot.append(sp,add);co.append(tl,ed,foot);n.append(co);v.append(n)}
+  const mt=sc.get();Object.assign(stamp,mt);
+  reviewAdd(parts,scope,got=>{if(!got.length)return;
+   const arr=(data.notes[key]=data.notes[key]||[]);got.forEach(h=>arr.push(withMeta(h,mt)));
+   const sk=parts.length-got.length;
+   persist(`Split text into ${got.length} sentence${got.length===1?'':'s'} under "${sel[sel.length-1]}"`);renderView();
+   const l=$('#list');if(!groupMode)l.scrollTop=l.scrollHeight;toast(got.length+' sentence'+(got.length===1?'':'s')+' added'+(sk?', '+sk+' skipped':''))})};
+ foot.append(sp,add);co.append(tl,ed,stp,foot);n.append(co);v.append(n)}
 
 // keep stored/pasted HTML to a small safe set
 function clean(html){
@@ -453,7 +634,7 @@ const ABBR=new Set(['mr','mrs','ms','dr','prof','sr','jr','st','vs','no','e.g','
 // splits pasted text into sentences: every line or list item, then every . ! ? ending (skips abbreviations like Dr. and e.g.)
 function splitSentences(html){
  let h=clean(html).replace(/&nbsp;|\u00a0/g,' ');
- h=h.replace(/<br\s*\/?>|<\/(?:div|p|li|ul|ol)>/gi,'\u0001').replace(/<\/?(?:div|p|li|ul|ol)\b[^>]*>/gi,'');
+ h=h.replace(/<br\s*\/?>|<\/?(?:div|p|li|ul|ol)\b[^>]*>/gi,'\u0001');
  const out=[];
  const push=t=>{const c=tidy(clean(t));if(c&&c.replace(/<[^>]*>/g,'').trim())out.push(c)};
  h.split('\u0001').forEach(line=>{
@@ -514,43 +695,129 @@ function parseHeaders(d){
  return arr.map(h=>({...h,count:Number(h.count)||1,type:h.type==='req'?'req':'enq'}))}
 $('#hLoad').onclick=()=>loadBox('Load hierarchy','Pasting replaces the current hierarchy. Sentences stay as they are.',d=>{
  data.headers=parseHeaders(d);data.stubs=Array.isArray(d.stubs)?d.stubs.filter(Array.isArray).map(a=>a.map(String)):[];sel=null;open.clear();persist('Loaded a hierarchy');renderTree();renderView()});
-// compact format: one nested tree, with each title's description (w) and sentences (s) stored on its own node
-function packAll(){
- const pack=n=>[...n.kids.values()].map(c=>{const o={n:c.label},k=kOf(c.path);
-  if(data.when[k])o.w=data.when[k];
-  if(data.notes[k]&&data.notes[k].length)o.s=data.notes[k].map(x=>x.html);
-  if(c.kids.size)o.c=pack(c);return o});
- return {v:2,t:pack(buildTrie()),m:{s:meta.saved,l:meta.log.slice(0,15)}}}
+// Save all / Load all work one Scheme at a time. Each Scheme is its own text, grouped by Category and Enquiry, with every sentence on its own line.
+const byLabel=(a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true});
+function packNode(c){const o={n:c.label},k=kOf(c.path);
+ if(data.when[k])o.w=data.when[k];
+ if(data.notes[k]&&data.notes[k].length){o.s=data.notes[k].map(x=>x.html);const sm=metaArr(data.notes[k]);if(sm)o.sm=sm}
+ if(c.kids.size)o.c=[...c.kids.values()].sort(byLabel).map(packNode);return o}
+function packSchemes(){return [...buildTrie().kids.values()].sort(byLabel).map(packNode)}
+function packAll(){return {v:2,t:packSchemes(),m:{s:meta.saved,l:meta.log.slice(0,15)}}} // the older whole-hierarchy format, still readable by Load all
+function fmtNode(n,depth,ind){ // Scheme, Category and Enquiry open their own lines. Below that, a path with no sentences stays on one line; a path that leads to sentences opens on one line and each sentence gets its own line
+ const has=countS(n)>0,kids=n.c&&n.c.length;
+ if((depth>=3&&!has)||(!has&&!kids))return JSON.stringify(n);
+ const rest={};for(const k in n)if(k!=='c'&&k!=='s'&&k!=='sm')rest[k]=n[k];
+ let out=JSON.stringify(rest).slice(0,-1);
+ const own=n.s&&n.s.length;
+ if(own){out+=',"s":[\n'+n.s.map(h=>ind+'  '+JSON.stringify(h)).join(',\n')+'\n'+ind+']';if(n.sm)out+=',"sm":'+JSON.stringify(n.sm)}
+ if(kids){
+  if(depth>=3&&!own&&n.c.length===1)out+=',"c":['+fmtNode(n.c[0],depth+1,ind)+']';
+  else out+=',"c":[\n'+n.c.map(k=>ind+'  '+fmtNode(k,depth+1,ind+'  ')).join(',\n')+'\n'+ind+']'}
+ return out+'}'}
+const schemeText=n=>'{"v":3,"scheme":'+fmtNode(n,0,'')+'}';
+const countS=n=>(n.s?n.s.length:0)+(n.c||[]).reduce((a,k)=>a+countS(k),0);
 function unpackAll(d){
  const hs=[],nn={},wn={},st=[];
  const walk=(list,p)=>list.forEach(o=>{
   const q=p.concat(String(o.n)),k=kOf(q);
   if(typeof o.w==='string'&&o.w.trim())wn[k]=o.w;
-  if(Array.isArray(o.s)&&o.s.length)nn[k]=o.s.map(h=>({html:keep(h)}));
+  if(Array.isArray(o.s)&&o.s.length)nn[k]=o.s.map((h,i)=>withMeta(keep(h),Array.isArray(o.sm)?o.sm[i]:null));
   if(Array.isArray(o.c)&&o.c.length)walk(o.c,q);
   else if(q.length<8)st.push(q);
   else if(q.length===8){const m=/^(\d+)\w* (enquiry|request)$/.exec(q[7]);
    hs.push({scheme:q[0],category:q[1],enquiry:q[2],header:q[3],subject:q[4],topic:q[5],action:q[6],count:m?+m[1]:1,type:m&&m[2]==='request'?'req':'enq'})}});
  walk(d.t,[]);return {headers:hs,notes:nn,when:wn,stubs:st}}
+
+// finds every {...} or [...] in the pasted text, so several schemes can be pasted one after another
+function splitJson(txt){
+ const out=[],n=txt.length;let i=0;
+ while(i<n){const ch=txt[i];if(ch!=='{'&&ch!=='['){i++;continue}
+  let depth=0,j=i,inStr=false;
+  for(;j<n;j++){const c=txt[j];
+   if(inStr){if(c==='\\')j++;else if(c==='"')inStr=false;continue}
+   if(c==='"')inStr=true;else if(c==='{'||c==='[')depth++;else if(c==='}'||c===']'){depth--;if(!depth)break}}
+  if(depth)throw new Error('Piece '+(out.length+1)+' looks cut off. Copy the whole text for that scheme.');
+  try{out.push(JSON.parse(txt.slice(i,j+1)))}catch(e){throw new Error('Piece '+(out.length+1)+' is not valid. '+e.message)}
+  i=j+1}
+ return out}
+// one pasted piece (a scheme, an older whole save, or an older format) -> {headers,notes,when,stubs}
+function datasetOf(d){
+ if(d&&d.v===3){if(!d.scheme||typeof d.scheme!=='object'||!String(d.scheme.n||'').trim())throw new Error('Expected a scheme with a name.');return unpackAll({t:[d.scheme]})}
+ if(d&&d.v===2&&Array.isArray(d.t))return unpackAll(d);
+ const hs=parseHeaders(d),nn={},wn={};
+ (Array.isArray(d.notes)?d.notes:[]).forEach(n=>{
+  if(!Array.isArray(n.chain)||!Array.isArray(n.sentences))return;
+  const k=kOf(n.chain.map(String));nn[k]=(nn[k]||[]).concat(n.sentences.map((h,i)=>withMeta(keep(h),Array.isArray(n.details)?n.details[i]:null)))});
+ (Array.isArray(d.when)?d.when:[]).forEach(w=>{if(Array.isArray(w.chain)&&typeof w.text==='string'&&w.text.trim())wn[kOf(w.chain.map(String))]=w.text});
+ return {headers:hs,notes:nn,when:wn,stubs:[]}}
+function schemesOf(ds){const S=new Set();
+ ds.headers.forEach(h=>S.add(h.scheme));ds.stubs.forEach(p=>S.add(p[0]));
+ Object.keys(ds.notes).forEach(k=>S.add(JSON.parse(k)[0]));Object.keys(ds.when).forEach(k=>S.add(JSON.parse(k)[0]));return S}
+// each pasted scheme replaces the scheme with the same name; other schemes are left alone (unless replaceAll)
+function mergeSchemes(dss,replaceAll){
+ const touched=new Set();
+ if(replaceAll)data={headers:[],notes:{},when:{},stubs:[]};
+ dss.forEach(ds=>{const S=schemesOf(ds);S.forEach(x=>touched.add(x));
+  data.headers=data.headers.filter(h=>!S.has(h.scheme));data.stubs=data.stubs.filter(p=>!S.has(p[0]));
+  for(const m of [data.notes,data.when])for(const k of Object.keys(m))if(S.has(JSON.parse(k)[0]))delete m[k];
+  data.headers.push(...ds.headers);data.stubs.push(...ds.stubs);Object.assign(data.notes,ds.notes);Object.assign(data.when,ds.when)});
+ return touched}
+
 $('#aSave').onclick=()=>{markSaved('Saved everything',true);
- const dj=el('button','btn','Download date.json');dj.onclick=downloadDate;
- saveBox('Save everything',JSON.stringify(packAll()),[dj])};
-$('#aLoad').onclick=()=>loadBox('Load everything','Pasting replaces the whole hierarchy, descriptions and sentences.',d=>{
- let nd;
- if(d&&d.v===2&&Array.isArray(d.t))nd=unpackAll(d);
- else{const hs=parseHeaders(d),nn={},wn={};
-  (Array.isArray(d.notes)?d.notes:[]).forEach(n=>{
-   if(!Array.isArray(n.chain)||!Array.isArray(n.sentences))return;
-   const k=kOf(n.chain.map(String));nn[k]=(nn[k]||[]).concat(n.sentences.map(h=>({html:keep(h)})))});
-  (Array.isArray(d.when)?d.when:[]).forEach(w=>{if(Array.isArray(w.chain)&&typeof w.text==='string'&&w.text.trim())wn[kOf(w.chain.map(String))]=w.text});
-  nd={headers:hs,notes:nn,when:wn,stubs:[]}}
- data=nd;sel=null;open.clear();persist('Loaded everything from a saved code');
- if(d&&d.m&&typeof d.m==='object'){
-  if(d.m.s)meta.saved=+d.m.s;meta.savedWhat='Loaded from a saved code';
-  const old=Array.isArray(d.m.l)?d.m.l.filter(x=>x&&x.t).map(x=>({t:String(x.t),a:+x.a||Date.now()})):[];
-  meta.log=meta.log.slice(0,1).concat(old).slice(0,30)}
- meta.dirty=false;renderInfo();renderTree();renderView()});
-function saveNotes(){markSaved('Saved a sentence list',false);saveBox('Save sentence list',JSON.stringify({chain:sel,sentences:(data.notes[kOf(sel)]||[]).map(s=>s.html)},null,2))}
+ const sch=packSchemes(),dj=el('button','btn','Download date.json');dj.onclick=downloadDate;
+ const body=el('div');let close;const cl=el('button','btn','Close');cl.onclick=()=>close();
+ if(!sch.length){body.append(el('p',null,'Nothing to save yet.'));close=modal('Save everything',body,[cl,dj]);return}
+ body.append(el('p',null,'Each scheme has its own text, so you can keep them separately. Copy them one at a time, or all together. Paste them back in with Load all.'));
+ const texts=sch.map(schemeText),list=el('div','schl');
+ sch.forEach((n,i)=>{
+  const row=el('div','schrow'),nm=el('div','schn'),nc=(n.c||[]).length,ns=countS(n);
+  nm.append(el('b',null,n.n),el('small',null,`${nc} categor${nc===1?'y':'ies'} · ${ns} sentence${ns===1?'':'s'} · ${Math.max(1,Math.round(texts[i].length/1024))} KB`));
+  const vb=el('button','btn sm','View'),cb=el('button','btn pri sm','Copy'),ta=el('textarea');ta.readOnly=true;ta.hidden=true;
+  vb.onclick=()=>{ta.hidden=!ta.hidden;vb.textContent=ta.hidden?'View':'Hide';if(!ta.hidden&&!ta.value)ta.value=texts[i]};
+  cb.onclick=async()=>{await copyText(texts[i]);toast('Copied "'+n.n+'"')};
+  row.append(nm,vb,cb,ta);list.append(row)});
+ body.append(list);
+ const all=el('button','btn pri','Copy all schemes');all.onclick=async()=>{await copyText(texts.join('\n\n'));toast('Copied '+sch.length+' scheme'+(sch.length===1?'':'s'))};
+ close=modal('Save everything',body,[cl,dj,all],'wide')};
+
+$('#aLoad').onclick=()=>{
+ const body=el('div'),ta=el('textarea'),info=el('div','lk-info'),msg=el('div','msg');ta.className='tall';
+ ta.placeholder='Paste one scheme, or several schemes one after another';
+ const top=el('div','lk-top'),pb=el('button','btn sm','Add from clipboard'),rl=el('label','lk-chk'),ck=el('input');ck.type='checkbox';
+ rl.append(ck,document.createTextNode('Replace everything (remove schemes that are not pasted)'));top.append(pb,rl);
+ body.append(el('p',null,'Paste a saved scheme, or several of them one after another. A pasted scheme replaces the scheme with the same name. Your other schemes stay as they are.'),top,ta,info,msg);
+ let close;const ok=el('button','btn pri','Load'),cl=el('button','btn','Cancel');cl.onclick=()=>close();
+ const parse=()=>{if(!ta.value.trim())return {sets:[]};
+  let ps;try{ps=splitJson(ta.value)}catch(e){return {sets:[],err:e.message}}
+  if(!ps.length)return {sets:[],err:'No saved text found in the box.'};
+  const sets=[];for(let i=0;i<ps.length;i++){try{sets.push({raw:ps[i],ds:datasetOf(ps[i])})}catch(e){return {sets,err:'Piece '+(i+1)+': '+e.message}}}
+  return {sets}};
+ const upd=()=>{const r=parse();info.innerHTML='';const seen={};
+  r.sets.forEach(x=>{const S=[...schemesOf(x.ds)];S.forEach(n=>seen[n]=(seen[n]||0)+1);
+   const cats=new Set();x.ds.headers.forEach(h=>cats.add(h.scheme+'\u0001'+h.category));x.ds.stubs.forEach(q=>{if(q.length>1)cats.add(q[0]+'\u0001'+q[1])});
+   const ns=Object.values(x.ds.notes).reduce((a,l)=>a+l.length,0);
+   info.append(el('div',null,`✓ ${S.join(', ')||'(empty)'} — ${cats.size} categor${cats.size===1?'y':'ies'}, ${ns} sentence${ns===1?'':'s'}`))});
+  Object.keys(seen).filter(n=>seen[n]>1).forEach(n=>info.append(el('div','warn',`"${n}" is pasted more than once. The last one is used.`)));
+  msg.textContent=r.err||'';ok.disabled=!r.sets.length||!!r.err;return r};
+ ta.oninput=upd;
+ pb.onclick=async()=>{try{const t=await navigator.clipboard.readText();if(!t.trim()){toast('The clipboard is empty');return}
+   ta.value=(ta.value.trim()?ta.value.replace(/\s+$/,'')+'\n\n':'')+t;upd()}
+  catch(e){toast('Cannot read the clipboard here. Paste into the box instead.')}};
+ ok.onclick=()=>{const r=upd();if(r.err||!r.sets.length)return;
+  const was=meta.dirty,empty=!data.headers.length&&!data.stubs.length,full=ck.checked;
+  const touched=mergeSchemes(r.sets.map(x=>x.ds),full),names=[...touched];
+  if(full||(sel&&touched.has(sel[0])))sel=null;
+  if(full)open.clear();
+  const what=names.length===1?'scheme "'+names[0]+'"':names.length+' schemes';
+  persist('Loaded '+what);
+  const whole=r.sets.map(x=>x.raw).filter(d=>d&&d.v===2&&d.m&&typeof d.m==='object').pop();
+  if(whole){const m=whole.m;if(m.s)meta.saved=+m.s;meta.savedWhat='Loaded from a saved code';
+   const old=Array.isArray(m.l)?m.l.filter(x=>x&&x.t).map(x=>({t:String(x.t),a:+x.a||Date.now()})):[];
+   meta.log=meta.log.slice(0,1).concat(old).slice(0,30)}
+  meta.dirty=(full||empty)?false:was;
+  close();renderInfo();renderTree();renderView();toast('Loaded '+what)};
+ close=modal('Load everything',body,[cl,ok],'wide');ok.disabled=true;ta.focus()};
+function saveNotes(){markSaved('Saved a sentence list',false);const l=data.notes[kOf(sel)]||[],o={chain:sel,sentences:l.map(s=>s.html)},dt=metaArr(l);if(dt)o.details=dt;saveBox('Save sentence list',JSON.stringify(o,null,2))}
 function loadNotes(){loadBox('Load sentence list','Each list remembers its chain. Sentences go back under that chain, which is recreated if it no longer exists.',d=>{
  const a=Array.isArray(d)?d:d.sentences;
  if(!Array.isArray(a))throw new Error('Expected a "sentences" list.');
@@ -561,7 +828,8 @@ function loadNotes(){loadBox('Load sentence list','Each list remembers its chain
   else{const m=p.length===8&&/^(\d+)\w* (enquiry|request)$/.exec(p[7]);
    if(m){data.headers.push({scheme:p[0],category:p[1],enquiry:p[2],header:p[3],subject:p[4],topic:p[5],action:p[6],count:+m[1],type:m[2]==='request'?'req':'enq'});target=p;msg='Loaded. Chain recreated'}
    else msg='Chain not found, so sentences were added to the selected chain'}}
- const k=kOf(target);data.notes[k]=(data.notes[k]||[]).concat(a.map(h=>({html:keep(h)})));
+ const det=!Array.isArray(d)&&Array.isArray(d.details)?d.details:[];
+ const k=kOf(target);data.notes[k]=(data.notes[k]||[]).concat(a.map((h,i)=>withMeta(keep(h),det[i])));
  for(let i=1;i<target.length;i++)open.add(kOf(target.slice(0,i)));
  sel=target;persist('Loaded a sentence list');renderTree();renderView();return msg})}
 
