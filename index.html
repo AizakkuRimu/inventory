@@ -127,6 +127,8 @@ section.view>*{flex:none}
 .gfold[open]>summary::before{content:'▾'}
 .gfold>summary small{margin-left:auto;font:400 12.5px var(--sans);color:var(--beige2)}
 .faq{display:block;width:fit-content;margin-top:5px;padding:0 6px;border:1px solid #8fb7e8;border-radius:9px;font:600 10px var(--sans);letter-spacing:.05em;color:#8fb7e8}
+.need{margin-right:auto;font:13px var(--sans);color:#e8c96b}
+.stamp.lack{box-shadow:inset 3px 0 0 #e8c96b}
 .note .sno{align-self:flex-start;min-width:40px;font:600 12px var(--sans);color:var(--beige2);padding-top:4px}
 .chm{font:italic 13px var(--serif);color:#e8c96b;white-space:nowrap}
 .chm a{color:inherit;text-decoration:underline dotted;cursor:pointer}
@@ -432,7 +434,9 @@ function stampControls(init){
  dl.append(ds,di);ml.append(ms);yl.append(yi);
  const get=()=>{let y=+yi.value||0;const m=+ms.value||0;if(m&&!y){y=new Date().getFullYear();yi.value=y} // a month with no year uses this year
   return normMeta({d:ds.value===NEWV?di.value:ds.value,m,y})};
- return {nodes:[dl,ml,yl],get,inputs:[ds,di,ms,yi]}}
+ // all three details are filled in (drafter, month and a valid year); does not change anything
+ const ready=()=>!!((ds.value===NEWV?di.value:ds.value).trim()&&+ms.value&&normMeta({y:+yi.value}).y);
+ return {nodes:[dl,ml,yl],get,ready,inputs:[ds,di,ms,yi]}}
 function editMeta(s){
  const sc=stampControls(s),w=el('div'),g=el('div','grid');
  sc.nodes[0].classList.add('full');g.append(...sc.nodes);
@@ -656,15 +660,17 @@ function renderView(){
   document.execCommand('insertHTML',false,out)});
  const sc=stampControls(stamp),stp=el('div','stamp'),dlist=el('datalist');dlist.id='drl';drafterNames().forEach(nm=>dlist.append(new Option(nm,nm)));
  stp.append(el('span',null,'Attach to new sentences:'),...sc.nodes,dlist);
- sc.inputs.forEach(i=>i.addEventListener('change',()=>Object.assign(stamp,sc.get())));
+ sc.inputs.forEach(i=>i.addEventListener('change',()=>{if(sc.ready())Object.assign(stamp,sc.get())}));
  const foot=el('div','foot'),add=el('button','btn pri','Add sentence');
- add.onclick=()=>{const h=tidy(clean(ed.innerHTML));if(!ed.textContent.trim())return;
+ add.onclick=()=>{if(!sc.ready()){toast('Fill in the drafter, month and year first');return}
+  const h=tidy(clean(ed.innerHTML));if(!ed.textContent.trim())return;
   const mt=sc.get();Object.assign(stamp,mt);
   reviewAdd([h],scope,(got,idx,dn)=>{if(!got.length){if(dn)toast('Already in the list (100% match), so it was not added');return}
    (data.notes[key]=data.notes[key]||[]).push(withMeta(got[0],mt));persist('Added a sentence to "'+sel[sel.length-1]+'"');renderView();
    const l=$('#list');if(!groupMode)l.scrollTop=l.scrollHeight})};
  const sp=el('button','btn','Split into sentences');sp.title='Split everything in the box into separate sentences and add each one. Sentences from the same paragraph are marked as chained';
- sp.onclick=()=>{if(!ed.textContent.trim())return;const parts=splitSentences(ed.innerHTML);if(!parts.length)return;
+ sp.onclick=()=>{if(!sc.ready()){toast('Fill in the drafter, month and year first');return}
+  if(!ed.textContent.trim())return;const parts=splitSentences(ed.innerHTML);if(!parts.length)return;
   const mt=sc.get();Object.assign(stamp,mt);
   reviewAdd(parts,scope,(got,idx,dn)=>{if(!got.length){if(dn)toast(dn+' exact duplicate'+(dn===1?'':'s')+' removed. Nothing new to add');return}
    const arr=(data.notes[key]=data.notes[key]||[]),per={},gid={};
@@ -673,7 +679,10 @@ function renderView(){
    const sk=parts.length-got.length-dn;
    persist(`Split text into ${got.length} sentence${got.length===1?'':'s'} under "${sel[sel.length-1]}"`);renderView();
    const l=$('#list');if(!groupMode)l.scrollTop=l.scrollHeight;toast(got.length+' sentence'+(got.length===1?'':'s')+' added'+(sk?', '+sk+' skipped':'')+(dn?', '+dn+' exact duplicate'+(dn===1?'':'s')+' removed':''))})};
- foot.append(sp,add);co.append(tl,ed,stp,foot);n.append(co);v.append(n)}
+ const need=el('span','need','Fill in the drafter, month and year to add sentences.');
+ const chk=()=>{const ok=sc.ready();add.disabled=sp.disabled=!ok;need.hidden=ok;stp.classList.toggle('lack',!ok)};
+ sc.inputs.forEach(i=>{i.addEventListener('input',chk);i.addEventListener('change',chk)});chk();
+ foot.append(need,sp,add);co.append(tl,ed,stp,foot);n.append(co);v.append(n)}
 
 // keep stored/pasted HTML to a small safe set
 function clean(html){
