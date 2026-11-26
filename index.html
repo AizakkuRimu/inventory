@@ -126,7 +126,8 @@ section.view>*{flex:none}
 .gfold>summary::before{content:'▸';color:var(--beige2);font-size:12px}
 .gfold[open]>summary::before{content:'▾'}
 .gfold>summary small{margin-left:auto;font:400 12.5px var(--sans);color:var(--beige2)}
-.note .sno{align-self:flex-start;min-width:34px;font:600 12px var(--sans);color:var(--beige2);padding-top:4px}
+.faq{display:block;width:fit-content;margin-top:5px;padding:0 6px;border:1px solid #8fb7e8;border-radius:9px;font:600 10px var(--sans);letter-spacing:.05em;color:#8fb7e8}
+.note .sno{align-self:flex-start;min-width:40px;font:600 12px var(--sans);color:var(--beige2);padding-top:4px}
 .chm{font:italic 13px var(--serif);color:#e8c96b;white-space:nowrap}
 .chm a{color:inherit;text-decoration:underline dotted;cursor:pointer}
 .note.flash{background:rgba(232,201,107,.18)}
@@ -460,8 +461,17 @@ const pct=x=>Math.max(51,Math.round(x*100))+'%';
 function scopeOf(p){const out=[],own=kOf(p);
  Object.keys(data.notes).forEach(k=>{const q=JSON.parse(k);if(!pre(q,p))return;(data.notes[k]||[]).forEach(s=>out.push({s,key:k,p:q}))});
  return out.sort((a,b)=>((a.key===own)?0:1)-((b.key===own)?0:1)||(a.key===b.key?0:a.p.join('\u0001').localeCompare(b.p.join('\u0001'),undefined,{numeric:true})))}
+// FAQ = a sentence that is just a full hyperlink (all of its text is inside a link, or it is a bare web address)
+function isFaq(html){
+ const d=new DOMParser().parseFromString('<div>'+(html||'')+'</div>','text/html').body.firstChild;
+ const t=d.textContent.replace(/\s+/g,'');if(!t)return false;
+ if(/^(https?:\/\/|www\.)\S+$/i.test(t))return true;
+ let lk='';d.querySelectorAll('a[href]').forEach(a=>lk+=a.textContent);
+ return !!lk&&lk.replace(/\s+/g,'')===t}
+// what makes two sentences a 100% match: same words in the same order. FAQs must also be the exact same text and links
+const exactKey=h=>isFaq(h)?'F|'+tidy(clean(h)).toLowerCase():'T|'+toks(h).join(' ');
 // sentences in the list that are over 50% like another one in the same list: Map entry -> [{e, score}]
-function findSimilar(entries){const map=new Map();if(entries.length>SIM_CAP)return {map,skipped:true};
+function findSimilar(entries){entries=entries.filter(e=>!isFaq(e.s.html));const map=new Map();if(entries.length>SIM_CAP)return {map,skipped:true};
  const it=entries.map(e=>mkItem(e.s.html)),t0=Date.now();let partial=false;
  for(let i=0;i<it.length;i++){if(Date.now()-t0>SIM_MS){partial=true;break}for(let j=i+1;j<it.length;j++){const sc=simScore(it[i],it[j]);
   if(sc>SIM){add(entries[i],entries[j],sc);add(entries[j],entries[i],sc)}}}
@@ -479,12 +489,17 @@ function simRow(h,removable){const r=el('div','simrow'),b=el('div','sb');
  return r}
 // before adding: flag new sentences that are over 50% like one already in scope; the user decides which to keep
 function reviewAdd(parts,scope,done){
- const pool=scope.map(e=>({e,...mkItem(e.s.html)}));
- const res=parts.map((h,i)=>{const it=mkItem(h),hits=[];
-  pool.forEach(q=>{const sc=simScore(it,q);if(sc>SIM)hits.push({e:q.e,score:sc})});
-  hits.sort((a,b)=>b.score-a.score);return {h,i,hits,keep:false}});
+ // 100% matches are dropped automatically (one copy is kept); FAQs skip the 50% check
+ const have=new Set(scope.map(e=>exactKey(e.s.html))),seen=new Set(),idx0=[];let dn=0;
+ parts.forEach((h,i)=>{const k=exactKey(h);if(have.has(k)||seen.has(k)){dn++;return}seen.add(k);idx0.push(i)});
+ const parts2=idx0.map(i=>parts[i]);
+ if(!parts2.length){done([],[],dn);return}
+ const pool=scope.filter(e=>!isFaq(e.s.html)).map(e=>({e,...mkItem(e.s.html)}));
+ const res=parts2.map((h,j)=>{const hits=[];
+  if(!isFaq(h)){const it=mkItem(h);pool.forEach(q=>{const sc=simScore(it,q);if(sc>SIM)hits.push({e:q.e,score:sc})})}
+  hits.sort((a,b)=>b.score-a.score);return {h,i:idx0[j],hits,keep:false}});
  const flagged=res.filter(r=>r.hits.length);
- if(!flagged.length){done(parts,parts.map((_,i)=>i));return}
+ if(!flagged.length){done(parts2,idx0,dn);return}
  const w=el('div'),here=sel[sel.length-1];
  w.append(el('p',null,`${flagged.length} of ${res.length} new sentence${res.length===1?'':'s'} ${flagged.length===1?'is':'are'} over 50% similar to sentences already in "${here}"${sel.length<8?' (including everything under it)':''}. Choose what to keep.`));
  let close;const ok=el('button','btn pri'),cl=el('button','btn','Back to editing');cl.onclick=()=>close();
@@ -501,7 +516,7 @@ function reviewAdd(parts,scope,done){
   sg.append(kb,sb);ch.append(el('span',null,'This new sentence:'),sg);box.append(ch);w.append(box)});
  const rest=res.length-flagged.length;
  if(rest)w.append(el('p',null,`The other ${rest} ${rest===1?'has':'have'} no close match and will be added.`));
- ok.onclick=()=>{close();const kept=res.filter(r=>!r.hits.length||r.keep);done(kept.map(r=>r.h),kept.map(r=>r.i))};
+ ok.onclick=()=>{close();const kept=res.filter(r=>!r.hits.length||r.keep);done(kept.map(r=>r.h),kept.map(r=>r.i),dn)};
  upd();close=modal('Similar sentences found',w,[cl,ok],'wide')}
 
 // sentences as folders by drafter (A–Z), then month/year groups (newest first), then A–Z inside each group
@@ -611,7 +626,7 @@ function renderView(){
   const cpb=el('button','btn sm','Copy');cpb.onclick=async()=>{await copyRich(clean(s.html));toast('Copied')};
   const eb=el('button','btn sm','Details');eb.title='Edit drafter, month and year';eb.onclick=()=>editMeta(s);
   if(mem&&mem.length>1){const ub=el('button','btn sm','Unchain');ub.title='Take this sentence out of its chain';ub.onclick=()=>{delete s.g;persist('Removed a sentence from a chain');renderView()};na.append(ub)}
-  na.append(cpb,eb,x);row.append(el('span','sno','S'+num.get(e)),b,na);return row};
+  na.append(cpb,eb,x);const sn=el('span','sno','S'+num.get(e));if(isFaq(s.html))sn.append(el('span','faq','FAQ'));row.append(sn,b,na);return row};
  if(groupMode&&scope.length)drawGrouped(L,scope,mkRow);else scope.forEach(e=>L.append(mkRow(e)));
  n.append(L);
 
@@ -645,19 +660,19 @@ function renderView(){
  const foot=el('div','foot'),add=el('button','btn pri','Add sentence');
  add.onclick=()=>{const h=tidy(clean(ed.innerHTML));if(!ed.textContent.trim())return;
   const mt=sc.get();Object.assign(stamp,mt);
-  reviewAdd([h],scope,got=>{if(!got.length)return;
+  reviewAdd([h],scope,(got,idx,dn)=>{if(!got.length){if(dn)toast('Already in the list (100% match), so it was not added');return}
    (data.notes[key]=data.notes[key]||[]).push(withMeta(got[0],mt));persist('Added a sentence to "'+sel[sel.length-1]+'"');renderView();
    const l=$('#list');if(!groupMode)l.scrollTop=l.scrollHeight})};
  const sp=el('button','btn','Split into sentences');sp.title='Split everything in the box into separate sentences and add each one. Sentences from the same paragraph are marked as chained';
  sp.onclick=()=>{if(!ed.textContent.trim())return;const parts=splitSentences(ed.innerHTML);if(!parts.length)return;
   const mt=sc.get();Object.assign(stamp,mt);
-  reviewAdd(parts,scope,(got,idx)=>{if(!got.length)return;
+  reviewAdd(parts,scope,(got,idx,dn)=>{if(!got.length){if(dn)toast(dn+' exact duplicate'+(dn===1?'':'s')+' removed. Nothing new to add');return}
    const arr=(data.notes[key]=data.notes[key]||[]),per={},gid={};
    idx.forEach(i=>{const l=parts.line[i];per[l]=(per[l]||0)+1});
    got.forEach((h,j)=>{const l=parts.line[idx[j]];let g=null;if(per[l]>1)g=gid[l]||(gid[l]=newG());arr.push(withMeta(h,mt,g))});
-   const sk=parts.length-got.length;
+   const sk=parts.length-got.length-dn;
    persist(`Split text into ${got.length} sentence${got.length===1?'':'s'} under "${sel[sel.length-1]}"`);renderView();
-   const l=$('#list');if(!groupMode)l.scrollTop=l.scrollHeight;toast(got.length+' sentence'+(got.length===1?'':'s')+' added'+(sk?', '+sk+' skipped':''))})};
+   const l=$('#list');if(!groupMode)l.scrollTop=l.scrollHeight;toast(got.length+' sentence'+(got.length===1?'':'s')+' added'+(sk?', '+sk+' skipped':'')+(dn?', '+dn+' exact duplicate'+(dn===1?'':'s')+' removed':''))})};
  foot.append(sp,add);co.append(tl,ed,stp,foot);n.append(co);v.append(n)}
 
 // keep stored/pasted HTML to a small safe set
@@ -936,7 +951,9 @@ function loadNotes(){loadBox('Load sentence list','Each list remembers its chain
    if(m){data.headers.push({scheme:p[0],category:p[1],enquiry:p[2],header:p[3],subject:p[4],topic:p[5],action:p[6],count:+m[1],type:m[2]==='request'?'req':'enq'});target=p;msg='Loaded. Chain recreated'}
    else msg='Chain not found, so sentences were added to the selected chain'}}
  const det=!Array.isArray(d)&&Array.isArray(d.details)?d.details:[];
- const k=kOf(target);const gc={};data.notes[k]=(data.notes[k]||[]).concat(a.map((h,i)=>withMeta(keep(h),det[i],gFrom(d.chains,i,gc))));
+ const k=kOf(target);const gc={},have=new Set((data.notes[k]||[]).map(x=>exactKey(x.html))),add=[];let dn=0;
+ a.forEach((h,i)=>{const kh=keep(h),ek=exactKey(kh);if(have.has(ek)){dn++;return}have.add(ek);add.push(withMeta(kh,det[i],gFrom(d.chains,i,gc)))});
+ data.notes[k]=(data.notes[k]||[]).concat(add);if(dn)msg=(msg?msg+'. ':'Loaded. ')+dn+' exact duplicate'+(dn===1?'':'s')+' left out';
  for(let i=1;i<target.length;i++)open.add(kOf(target.slice(0,i)));
  sel=target;persist('Loaded a sentence list');renderTree();renderView();return msg})}
 
