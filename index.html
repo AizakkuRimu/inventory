@@ -109,8 +109,8 @@ section.view>*{flex:none}
 .tools button{min-width:34px;height:30px;background:none;border:1px solid transparent;border-radius:3px;color:var(--beige)}
 .tools button:hover{border-color:var(--beige2);background:var(--panel2)}
 .tools input{background:var(--ink);border:1px solid var(--line);border-radius:3px;padding:4px 8px;width:190px}
-#ed{min-height:64px;max-height:160px;overflow:auto;padding:10px 12px;font:16px/1.55 var(--serif);outline:0}
-#ed:empty::before{content:attr(data-ph);color:var(--beige2)}
+#ed{display:block;min-height:64px;max-height:160px;overflow:auto;padding:10px 12px;font:16px/1.55 var(--serif);outline:0;cursor:text;-webkit-user-select:text;user-select:text;word-break:break-word;-webkit-tap-highlight-color:transparent}
+#ed:empty::before{content:attr(data-ph);color:var(--beige2);pointer-events:none;display:inline-block}
 .composer .foot{display:flex;justify-content:flex-end;gap:8px;padding:6px}
 .note .na{display:flex;flex-direction:column;gap:6px;align-self:flex-start}
 .notes-h{flex-wrap:wrap}
@@ -447,6 +447,25 @@ function editMeta(s){
   if(m.d)s.d=m.d;if(m.y){s.y=m.y;if(m.m)s.m=m.m}
   close();persist('Changed the drafter or date of a sentence');renderView()};
  close=modal('Sentence details',w,[cl,ok])}
+// change the drafter and/or month and year of every sentence in the list in one go
+function editAll(scope){
+ const sc=stampControls({}),w=el('div'),g=el('div','grid');
+ sc.nodes[0].classList.add('full');
+ const cd=el('label','lk-chk'),cdi=el('input');cdi.type='checkbox';cd.append(cdi,document.createTextNode('Change the drafter'));
+ const ct=el('label','lk-chk'),cti=el('input');cti.type='checkbox';ct.append(cti,document.createTextNode('Change the month and year'));
+ const [ds,di,ms,yi]=sc.inputs;
+ const sync=()=>{ds.disabled=di.disabled=!cdi.checked;ms.disabled=yi.disabled=!cti.checked;ok.disabled=!(cdi.checked||cti.checked)};
+ const n=scope.length;
+ g.append(...sc.nodes);
+ w.append(el('p',null,'This changes all '+n+' sentence'+(n===1?'':'s')+' in the list. Tick what you want to change. A ticked field that you leave empty is removed from every sentence.'),cd,ct,g);
+ let close;const ok=el('button','btn pri','Apply to '+n+' sentence'+(n===1?'':'s')),cl=el('button','btn','Cancel');cl.onclick=()=>close();
+ [cdi,cti].forEach(c=>c.addEventListener('change',sync));
+ ok.onclick=()=>{const m=sc.get();
+  scope.forEach(e=>{const t=e.s;
+   if(cdi.checked){delete t.d;if(m.d)t.d=m.d}
+   if(cti.checked){delete t.m;delete t.y;if(m.y){t.y=m.y;if(m.m)t.m=m.m}}});
+  close();persist('Changed the details of '+n+' sentence'+(n===1?'':'s'));renderView();toast('Updated '+n+' sentence'+(n===1?'':'s'))};
+ close=modal('Edit all sentence details',w,[cl,ok]);sync()}
 /* similar sentences: word-for-word match, in order. 'Over 50%' means shared words in the same order are more than half of both sentences. */
 const SIM=0.5,SIM_CAP=6000,SIM_MS=1200,HIT_MAX=10;
 const toks=h=>String(h).toLowerCase().replace(/<[^>]*>/g,' ').replace(/&[a-z0-9#]+;/g,' ').match(/[\p{L}\p{N}]+/gu)||[];
@@ -596,7 +615,8 @@ function renderView(){
  gb.onclick=()=>{groupMode=!groupMode;renderView()};
  const ca=el('button','btn sm','Copy all');ca.disabled=!scope.length;
  ca.onclick=async()=>{await copyRich(scope.map(x=>'<div>'+clean(x.s.html)+'</div>').join(''));toast('Copied')};
- nh.append(gb,ca,sl,ss);n.append(nh);
+ const ea=el('button','btn sm','Edit all details');ea.title='Change the drafter, month or year of every sentence in this list at once';ea.disabled=!scope.length;ea.onclick=()=>editAll(scope);
+ nh.append(gb,ea,ca,sl,ss);n.append(nh);
  const L=el('div');L.id='list';
  if(!scope.length)L.append(el('div','empty',sel.length<8?'No sentences under this title yet. Write one below to add it here.':'No sentences for this chain yet. Write one below.'));
  if(sim.skipped)L.append(el('div','empty','Too many sentences here to check for similar ones. Pick a smaller category.'));
@@ -658,6 +678,12 @@ function renderView(){
  ed.addEventListener('paste',e=>{e.preventDefault();const cd=e.clipboardData,h=cd.getData('text/html');
   const out=h?clean(h):cd.getData('text/plain').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>');
   document.execCommand('insertHTML',false,out)});
+ // a click anywhere in the box (not just on the text line) puts the cursor in it straight away
+ const focusEd=()=>{ed.focus();if(getSelection().anchorNode&&ed.contains(getSelection().anchorNode))return;
+  const r=document.createRange();r.selectNodeContents(ed);r.collapse(false);const g=getSelection();g.removeAllRanges();g.addRange(r)};
+ ed.addEventListener('mousedown',()=>setTimeout(()=>{if(document.activeElement!==ed)focusEd()},0));
+ ed.addEventListener('touchend',()=>setTimeout(()=>{if(document.activeElement!==ed)focusEd()},0));
+ ed.addEventListener('click',()=>{if(document.activeElement!==ed)focusEd()});
  const sc=stampControls(stamp),stp=el('div','stamp'),dlist=el('datalist');dlist.id='drl';drafterNames().forEach(nm=>dlist.append(new Option(nm,nm)));
  stp.append(el('span',null,'Attach to new sentences:'),...sc.nodes,dlist);
  sc.inputs.forEach(i=>i.addEventListener('change',()=>{if(sc.ready())Object.assign(stamp,sc.get())}));
